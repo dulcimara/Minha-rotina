@@ -1,5 +1,19 @@
 # Design Guidelines: Aplicativo de Gestão de Rotina
 
+## Color Palette
+**Paleta Coral, Lavanda & Roxo**:
+- **Primary**: #9C51B6 (Roxo Médio) - usado para ações principais, botões, elementos interativos
+- **Secondary**: #C083D0 (Lavanda) - usado para elementos secundários, estados alternativos
+- **Accent**: #FF7F52 (Coral) - usado para destaques, chamadas de ação importantes, notificações
+- **Background**: #FEF0F4 (Rosa Claro) - fundo principal, cria atmosfera suave e acolhedora
+- **Destrutivo**: #F28076 (Coral Salmão) - usado para ações de exclusão, alertas
+
+**Aplicação**:
+- Botões primários: roxo médio (#9C51B6)
+- Floating Action Button (voz): coral (#FF7F52) para máxima visibilidade
+- Badges de categoria: variações de lavanda e coral
+- Cards: fundo rosa muito claro com bordas sutis
+
 ## Design Approach
 **Selected Approach**: Design System + Reference Hybrid
 - **Primary Reference**: Notion (organização visual limpa), Asana (clareza de tarefas), Apple Calendar (calendário intuitivo)

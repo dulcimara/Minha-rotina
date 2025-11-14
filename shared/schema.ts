@@ -38,3 +38,18 @@ export const insertActivitySchema = createInsertSchema(activities).omit({
 
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activities.$inferSelect;
+
+export const menstrualCycles = pgTable("menstrual_cycles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  notes: text("notes"),
+});
+
+export const insertMenstrualCycleSchema = createInsertSchema(menstrualCycles).omit({
+  id: true,
+});
+
+export type InsertMenstrualCycle = z.infer<typeof insertMenstrualCycleSchema>;
+export type MenstrualCycle = typeof menstrualCycles.$inferSelect;
