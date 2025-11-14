@@ -27,6 +27,9 @@ export default function Home() {
       date: new Date(2025, 10, 14, 16, 0),
       category: "Saúde",
       completed: false,
+      reminderEnabled: true,
+      reminderType: "text" as const,
+      reminderDateTime: new Date(2025, 10, 14, 15, 30),
     },
     {
       id: "2",
@@ -34,6 +37,7 @@ export default function Home() {
       date: new Date(2025, 10, 14, 12, 30),
       category: "Casa",
       completed: true,
+      reminderEnabled: false,
     },
     {
       id: "3",
@@ -42,6 +46,9 @@ export default function Home() {
       date: new Date(2025, 10, 14, 18, 30),
       category: "Fitness",
       completed: false,
+      reminderEnabled: true,
+      reminderType: "voice" as const,
+      reminderDateTime: new Date(2025, 10, 14, 18, 0),
     },
     {
       id: "4",
@@ -49,6 +56,9 @@ export default function Home() {
       date: new Date(2025, 10, 15, 10, 0),
       category: "Trabalho",
       completed: false,
+      reminderEnabled: true,
+      reminderType: "text" as const,
+      reminderDateTime: new Date(2025, 10, 15, 9, 30),
     },
   ];
 

@@ -25,6 +25,9 @@ export const activities = pgTable("activities", {
   category: text("category").notNull(),
   completed: text("completed").notNull().default("false"),
   userId: varchar("user_id"),
+  reminderEnabled: text("reminder_enabled").notNull().default("true"),
+  reminderType: text("reminder_type").notNull().default("text"),
+  reminderDateTime: timestamp("reminder_date_time"),
 });
 
 export const insertActivitySchema = createInsertSchema(activities).omit({

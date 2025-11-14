@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Clock } from "lucide-react";
+import { Pencil, Trash2, Clock, Bell, Volume2, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,9 @@ interface ActivityCardProps {
   date: Date;
   category: string;
   completed: boolean;
+  reminderEnabled?: boolean;
+  reminderType?: "text" | "voice";
+  reminderDateTime?: Date;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onToggleComplete?: (id: string, completed: boolean) => void;
@@ -35,6 +38,9 @@ export function ActivityCard({
   date,
   category,
   completed,
+  reminderEnabled,
+  reminderType,
+  reminderDateTime,
   onEdit,
   onDelete,
   onToggleComplete,
@@ -86,6 +92,19 @@ export function ActivityCard({
               <Clock className="h-4 w-4" />
               <span data-testid={`text-time-${id}`}>{format(date, "HH:mm", { locale: ptBR })}</span>
             </div>
+            
+            {reminderEnabled && reminderDateTime && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {reminderType === "voice" ? (
+                  <Volume2 className="h-3.5 w-3.5" />
+                ) : (
+                  <MessageSquare className="h-3.5 w-3.5" />
+                )}
+                <span data-testid={`text-reminder-${id}`}>
+                  {format(reminderDateTime, "dd/MM HH:mm", { locale: ptBR })}
+                </span>
+              </div>
+            )}
             
             <div className="flex items-center gap-1 ml-auto">
               <Button

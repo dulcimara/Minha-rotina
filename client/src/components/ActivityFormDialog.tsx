@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -19,11 +20,12 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { CalendarIcon, Bell, Volume2, MessageSquare } from "lucide-react";
+import { format, subMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
 
 interface ActivityFormDialogProps {
   open: boolean;
@@ -34,6 +36,9 @@ interface ActivityFormDialogProps {
     date: Date;
     time: string;
     category: string;
+    reminderEnabled: boolean;
+    reminderType: "text" | "voice";
+    reminderDateTime: Date;
   }) => void;
   initialData?: {
     title?: string;
@@ -41,6 +46,9 @@ interface ActivityFormDialogProps {
     date?: Date;
     time?: string;
     category?: string;
+    reminderEnabled?: boolean;
+    reminderType?: "text" | "voice";
+    reminderDateTime?: Date;
   };
 }
 
@@ -64,15 +72,40 @@ export function ActivityFormDialog({
   const [date, setDate] = useState<Date | undefined>(initialData?.date || new Date());
   const [time, setTime] = useState(initialData?.time || "12:00");
   const [category, setCategory] = useState(initialData?.category || "");
+  const [reminderEnabled, setReminderEnabled] = useState(initialData?.reminderEnabled ?? true);
+  const [reminderType, setReminderType] = useState<"text" | "voice">(initialData?.reminderType || "text");
+  const [reminderDate, setReminderDate] = useState<Date | undefined>(initialData?.reminderDateTime);
+  const [reminderTime, setReminderTime] = useState("");
+
+  useEffect(() => {
+    if (date && time && !initialData?.reminderDateTime) {
+      const [hours, minutes] = time.split(':').map(Number);
+      const activityDateTime = new Date(date);
+      activityDateTime.setHours(hours, minutes);
+      
+      const defaultReminderDateTime = subMinutes(activityDateTime, 30);
+      setReminderDate(defaultReminderDateTime);
+      setReminderTime(format(defaultReminderDateTime, "HH:mm"));
+    } else if (initialData?.reminderDateTime) {
+      setReminderTime(format(initialData.reminderDateTime, "HH:mm"));
+    }
+  }, [date, time, initialData]);
 
   const handleSave = () => {
-    if (title && date && category) {
+    if (title && date && category && reminderDate) {
+      const [hours, minutes] = reminderTime.split(':').map(Number);
+      const finalReminderDateTime = new Date(reminderDate);
+      finalReminderDateTime.setHours(hours, minutes);
+      
       onSave?.({
         title,
         description,
         date,
         time,
         category,
+        reminderEnabled,
+        reminderType,
+        reminderDateTime: finalReminderDateTime,
       });
       onOpenChange(false);
     }
@@ -170,6 +203,98 @@ export function ActivityFormDialog({
               </SelectContent>
             </Select>
           </div>
+
+          <Card className="p-4 space-y-4 bg-muted/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-primary" />
+                <Label htmlFor="reminder-enabled" className="font-semibold cursor-pointer">
+                  Configurar lembrete
+                </Label>
+              </div>
+              <Switch
+                id="reminder-enabled"
+                checked={reminderEnabled}
+                onCheckedChange={setReminderEnabled}
+                data-testid="switch-reminder-enabled"
+              />
+            </div>
+
+            {reminderEnabled && (
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>Tipo de lembrete</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={reminderType === "text" ? "default" : "outline"}
+                      onClick={() => setReminderType("text")}
+                      data-testid="button-reminder-type-text"
+                      className="justify-start gap-2"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Texto no app
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={reminderType === "voice" ? "default" : "outline"}
+                      onClick={() => setReminderType("voice")}
+                      data-testid="button-reminder-type-voice"
+                      className="justify-start gap-2"
+                    >
+                      <Volume2 className="h-4 w-4" />
+                      Por voz
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data do lembrete</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !reminderDate && "text-muted-foreground"
+                          )}
+                          data-testid="button-select-reminder-date"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {reminderDate ? format(reminderDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecione"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={reminderDate}
+                          onSelect={setReminderDate}
+                          locale={ptBR}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reminder-time">Horário</Label>
+                    <Input
+                      id="reminder-time"
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      data-testid="input-reminder-time"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Padrão: 30 minutos antes da atividade
+                </p>
+              </div>
+            )}
+          </Card>
         </div>
 
         <DialogFooter className="gap-2">
@@ -182,7 +307,7 @@ export function ActivityFormDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!title || !date || !category}
+            disabled={!title || !date || !category || (reminderEnabled && (!reminderDate || !reminderTime))}
             data-testid="button-save-activity"
           >
             Salvar
