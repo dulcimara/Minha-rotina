@@ -49,6 +49,8 @@ export default function Home() {
       reminderEnabled: true,
       reminderType: "voice" as const,
       reminderDateTime: new Date(2025, 10, 14, 18, 0),
+      reminderVoiceText: "Você tem academia em 30 minutos. Não esqueça sua garrafa de água!",
+      reminderVoiceGender: "female" as const,
     },
     {
       id: "4",

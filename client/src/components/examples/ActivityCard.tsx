@@ -37,6 +37,8 @@ export default function ActivityCardExample() {
         reminderEnabled={true}
         reminderType="voice"
         reminderDateTime={new Date(2025, 11, 14, 18, 0)}
+        reminderVoiceText="Você tem academia em 30 minutos"
+        reminderVoiceGender="female"
         onEdit={(id) => console.log("Edit activity:", id)}
         onDelete={(id) => console.log("Delete activity:", id)}
         onToggleComplete={(id, completed) => console.log("Toggle complete:", id, completed)}

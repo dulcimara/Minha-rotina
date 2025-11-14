@@ -28,6 +28,8 @@ export const activities = pgTable("activities", {
   reminderEnabled: text("reminder_enabled").notNull().default("true"),
   reminderType: text("reminder_type").notNull().default("text"),
   reminderDateTime: timestamp("reminder_date_time"),
+  reminderVoiceText: text("reminder_voice_text"),
+  reminderVoiceGender: text("reminder_voice_gender").default("female"),
 });
 
 export const insertActivitySchema = createInsertSchema(activities).omit({

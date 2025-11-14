@@ -17,6 +17,8 @@ interface ActivityCardProps {
   reminderEnabled?: boolean;
   reminderType?: "text" | "voice";
   reminderDateTime?: Date;
+  reminderVoiceText?: string;
+  reminderVoiceGender?: "male" | "female";
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onToggleComplete?: (id: string, completed: boolean) => void;
@@ -41,6 +43,8 @@ export function ActivityCard({
   reminderEnabled,
   reminderType,
   reminderDateTime,
+  reminderVoiceText,
+  reminderVoiceGender,
   onEdit,
   onDelete,
   onToggleComplete,

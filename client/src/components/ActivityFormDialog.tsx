@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Bell, Volume2, MessageSquare } from "lucide-react";
+import { CalendarIcon, Bell, Volume2, MessageSquare, User } from "lucide-react";
 import { format, subMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,8 @@ interface ActivityFormDialogProps {
     reminderEnabled: boolean;
     reminderType: "text" | "voice";
     reminderDateTime: Date;
+    reminderVoiceText?: string;
+    reminderVoiceGender?: "male" | "female";
   }) => void;
   initialData?: {
     title?: string;
@@ -49,6 +51,8 @@ interface ActivityFormDialogProps {
     reminderEnabled?: boolean;
     reminderType?: "text" | "voice";
     reminderDateTime?: Date;
+    reminderVoiceText?: string;
+    reminderVoiceGender?: "male" | "female";
   };
 }
 
@@ -76,6 +80,8 @@ export function ActivityFormDialog({
   const [reminderType, setReminderType] = useState<"text" | "voice">(initialData?.reminderType || "text");
   const [reminderDate, setReminderDate] = useState<Date | undefined>(initialData?.reminderDateTime);
   const [reminderTime, setReminderTime] = useState("");
+  const [reminderVoiceText, setReminderVoiceText] = useState(initialData?.reminderVoiceText || "");
+  const [reminderVoiceGender, setReminderVoiceGender] = useState<"male" | "female">(initialData?.reminderVoiceGender || "female");
 
   useEffect(() => {
     if (date && time && !initialData?.reminderDateTime) {
@@ -106,6 +112,8 @@ export function ActivityFormDialog({
         reminderEnabled,
         reminderType,
         reminderDateTime: finalReminderDateTime,
+        reminderVoiceText: reminderType === "voice" ? reminderVoiceText : undefined,
+        reminderVoiceGender: reminderType === "voice" ? reminderVoiceGender : undefined,
       });
       onOpenChange(false);
     }
@@ -289,6 +297,51 @@ export function ActivityFormDialog({
                   </div>
                 </div>
 
+                {reminderType === "voice" && (
+                  <div className="space-y-4 pt-2 border-t">
+                    <div className="space-y-2">
+                      <Label htmlFor="voice-text">Mensagem de voz *</Label>
+                      <Textarea
+                        id="voice-text"
+                        value={reminderVoiceText}
+                        onChange={(e) => setReminderVoiceText(e.target.value)}
+                        placeholder="Ex: Você tem consulta médica em 30 minutos"
+                        data-testid="input-voice-message"
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Esta mensagem será lida em voz alta
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Tipo de voz</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant={reminderVoiceGender === "female" ? "default" : "outline"}
+                          onClick={() => setReminderVoiceGender("female")}
+                          data-testid="button-voice-female"
+                          className="justify-start gap-2"
+                        >
+                          <User className="h-4 w-4" />
+                          Voz feminina
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={reminderVoiceGender === "male" ? "default" : "outline"}
+                          onClick={() => setReminderVoiceGender("male")}
+                          data-testid="button-voice-male"
+                          className="justify-start gap-2"
+                        >
+                          <User className="h-4 w-4" />
+                          Voz masculina
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground">
                   Padrão: 30 minutos antes da atividade
                 </p>
@@ -307,7 +360,13 @@ export function ActivityFormDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!title || !date || !category || (reminderEnabled && (!reminderDate || !reminderTime))}
+            disabled={
+              !title || 
+              !date || 
+              !category || 
+              (reminderEnabled && (!reminderDate || !reminderTime)) ||
+              (reminderEnabled && reminderType === "voice" && !reminderVoiceText.trim())
+            }
             data-testid="button-save-activity"
           >
             Salvar
