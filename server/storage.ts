@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type MenstrualCycle, type InsertMenstrualCycle } from "@shared/schema";
+import { type User, type InsertUser, type MenstrualCycle, type InsertMenstrualCycle, type Reminder, type InsertReminder } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // modify the interface with any CRUD methods
@@ -14,15 +14,19 @@ export interface IStorage {
   updateMenstrualCycle(id: string, cycle: Partial<InsertMenstrualCycle>): Promise<MenstrualCycle | undefined>;
   deleteMenstrualCycle(id: string): Promise<boolean>;
   getActiveCycle(userId?: string): Promise<MenstrualCycle | undefined>;
+  getReminders(userId?: string, limit?: number): Promise<Reminder[]>;
+  createReminder(reminder: InsertReminder): Promise<Reminder>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private menstrualCycles: Map<string, MenstrualCycle>;
+  private reminders: Map<string, Reminder>;
 
   constructor() {
     this.users = new Map();
     this.menstrualCycles = new Map();
+    this.reminders = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -94,6 +98,30 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
     
     return cycles[0];
+  }
+
+  async getReminders(userId?: string, limit?: number): Promise<Reminder[]> {
+    let reminders = Array.from(this.reminders.values());
+    if (userId) {
+      reminders = reminders.filter(r => r.userId === userId);
+    }
+    reminders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    if (limit) {
+      reminders = reminders.slice(0, limit);
+    }
+    return reminders;
+  }
+
+  async createReminder(insertReminder: InsertReminder): Promise<Reminder> {
+    const id = randomUUID();
+    const reminder: Reminder = {
+      ...insertReminder,
+      id,
+      createdAt: new Date(),
+      userId: insertReminder.userId || null,
+    };
+    this.reminders.set(id, reminder);
+    return reminder;
   }
 }
 

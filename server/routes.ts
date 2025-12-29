@@ -1,10 +1,33 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMenstrualCycleSchema } from "@shared/schema";
+import { insertMenstrualCycleSchema, insertReminderSchema } from "@shared/schema";
 import { subMonths } from "date-fns";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/api/reminders", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const reminders = await storage.getReminders(req.user?.id, limit);
+      res.json(reminders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reminders" });
+    }
+  });
+
+  app.post("/api/reminders", async (req, res) => {
+    try {
+      const validatedData = insertReminderSchema.parse(req.body);
+      const reminder = await storage.createReminder({
+        ...validatedData,
+        userId: req.user?.id || null,
+      });
+      res.status(201).json(reminder);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid reminder data" });
+    }
+  });
+
   app.get("/api/menstrual-cycles", async (req, res) => {
     try {
       const sixMonthsAgo = subMonths(new Date(), 6);

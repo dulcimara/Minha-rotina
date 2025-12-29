@@ -10,14 +10,50 @@ import { VoiceCommandDialog } from "@/components/VoiceCommandDialog";
 import { ActivityFormDialog } from "@/components/ActivityFormDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, CalendarX, Sparkles } from "lucide-react";
+import { Plus, CalendarX, Sparkles, Bell } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Reminder, insertReminderSchema } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [voiceDialogOpen, setVoiceDialogOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<"listening" | "processing" | "done">("done");
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  const { data: reminders = [] } = useQuery<Reminder[]>({
+    queryKey: ["/api/reminders", { limit: 3 }],
+  });
+
+  const reminderMutation = useMutation({
+    mutationFn: async (text: string) => {
+      await apiRequest("POST", "/api/reminders", { text });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
+      setReminderDialogOpen(false);
+      toast({ title: "Lembrete cadastrado com sucesso!" });
+    },
+  });
+
+  const reminderForm = useForm({
+    resolver: zodResolver(insertReminderSchema),
+    defaultValues: { text: "" },
+  });
+
+  const onSubmitReminder = (data: { text: string }) => {
+    reminderMutation.mutate(data.text);
+    reminderForm.reset();
+  };
   
   const mockActivities = [
     {
@@ -118,23 +154,56 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="today" className="space-y-6">
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Sparkles className="h-6 w-6 text-primary" />
-                <div>
-                  <h2 className="text-2xl font-semibold" data-testid="text-today-title">
-                    {format(new Date(), "EEEE", { locale: ptBR })}
-                  </h2>
-                  <p className="text-sm text-muted-foreground" data-testid="text-today-date">
-                    {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </p>
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                  <div>
+                    <h2 className="text-2xl font-semibold" data-testid="text-today-title">
+                      {format(new Date(), "EEEE", { locale: ptBR })}
+                    </h2>
+                    <p className="text-sm text-muted-foreground" data-testid="text-today-date">
+                      {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              
-              <p className="text-sm text-muted-foreground">
-                Você tem {todayActivities.length} {todayActivities.length === 1 ? "atividade" : "atividades"} para hoje
-              </p>
-            </Card>
+                
+                <p className="text-sm text-muted-foreground">
+                  Você tem {todayActivities.length} {todayActivities.length === 1 ? "atividade" : "atividades"} para hoje
+                </p>
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Bell className="h-6 w-6 text-primary" />
+                    <h2 className="text-xl font-semibold">Lembretes</h2>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setReminderDialogOpen(true)}
+                    data-testid="button-new-reminder"
+                  >
+                    Novo
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {reminders.length > 0 ? (
+                    reminders.map((reminder) => (
+                      <div
+                        key={reminder.id}
+                        className="p-2 rounded-md bg-muted/50 text-sm"
+                        data-testid={`text-reminder-${reminder.id}`}
+                      >
+                        {reminder.text}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Nenhum lembrete cadastrado</p>
+                  )}
+                </div>
+              </Card>
+            </div>
 
             <div className="space-y-3">
               {todayActivities.length > 0 ? (
@@ -232,6 +301,36 @@ export default function Home() {
           console.log("Activity saved:", activity);
         }}
       />
+
+      <Dialog open={reminderDialogOpen} onOpenChange={setReminderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Lembrete</DialogTitle>
+          </DialogHeader>
+          <Form {...reminderForm}>
+            <form onSubmit={reminderForm.handleSubmit(onSubmitReminder)} className="space-y-4">
+              <FormField
+                control={reminderForm.control}
+                name="text"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
+                    <FormControl>
+                      <Input placeholder="O que você precisa lembrar?" {...field} data-testid="input-reminder-text" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit" disabled={reminderMutation.isPending} data-testid="button-save-reminder">
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -53,3 +53,18 @@ export const insertMenstrualCycleSchema = createInsertSchema(menstrualCycles).om
 
 export type InsertMenstrualCycle = z.infer<typeof insertMenstrualCycleSchema>;
 export type MenstrualCycle = typeof menstrualCycles.$inferSelect;
+
+export const reminders = pgTable("reminders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  userId: varchar("user_id"),
+});
+
+export const insertReminderSchema = createInsertSchema(reminders).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertReminder = z.infer<typeof insertReminderSchema>;
+export type Reminder = typeof reminders.$inferSelect;
