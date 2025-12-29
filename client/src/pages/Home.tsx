@@ -31,7 +31,7 @@ export default function Home() {
   const { toast } = useToast();
 
   const { data: reminders = [] } = useQuery<Reminder[]>({
-    queryKey: ["/api/reminders", { limit: 3 }],
+    queryKey: ["/api/reminders", 3],
   });
 
   const reminderMutation = useMutation({
