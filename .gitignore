@@ -4,3 +4,6 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+# Senhas e chaves locais (nunca enviar ao GitHub)
+.env
+.env.local

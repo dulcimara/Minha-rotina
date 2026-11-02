@@ -10,111 +10,201 @@ import { VoiceCommandDialog } from "@/components/VoiceCommandDialog";
 import { ActivityFormDialog } from "@/components/ActivityFormDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, CalendarX, Sparkles, Bell } from "lucide-react";
+import { Plus, CalendarX, Sparkles, Bell, LogOut, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Reminder, insertReminderSchema } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  type Activity,
+  type ActivityInput,
+  fetchActivities,
+  createActivity,
+  updateActivity,
+  setActivityCompleted,
+  deleteActivity,
+  fetchReminders,
+  createReminder,
+  deleteReminder,
+} from "@/lib/data";
+
+const reminderSchema = z.object({
+  text: z.string().trim().min(1, "Escreva o lembrete"),
+});
+
+type FormActivity = {
+  title: string;
+  description: string;
+  date: Date;
+  time: string;
+  category: string;
+  reminderEnabled: boolean;
+  reminderType: "text" | "voice";
+  reminderDateTime: Date;
+  reminderVoiceText?: string;
+  reminderVoiceGender?: "male" | "female";
+};
+
+// Junta a data escolhida no calendário com o horário digitado.
+function toActivityInput(form: FormActivity): ActivityInput {
+  const [hours, minutes] = form.time.split(":").map(Number);
+  const date = new Date(form.date);
+  date.setHours(hours || 0, minutes || 0, 0, 0);
+  return {
+    title: form.title.trim(),
+    description: form.description.trim() || undefined,
+    date,
+    category: form.category,
+    reminderEnabled: form.reminderEnabled,
+    reminderType: form.reminderType,
+    reminderDateTime: form.reminderEnabled ? form.reminderDateTime : undefined,
+    reminderVoiceText: form.reminderVoiceText,
+    reminderVoiceGender: form.reminderVoiceGender,
+  };
+}
 
 export default function Home() {
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+  const userId = user?.id;
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [voiceDialogOpen, setVoiceDialogOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<"listening" | "processing" | "done">("done");
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [formKey, setFormKey] = useState(0);
+  const [editing, setEditing] = useState<Activity | null>(null);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
-  const { toast } = useToast();
 
-  const { data: reminders = [] } = useQuery<Reminder[]>({
-    queryKey: ["/api/reminders", 3],
+  const showError = (title: string) => (error: Error) =>
+    toast({ title, description: error.message, variant: "destructive" });
+
+  // ---------- Dados ----------
+
+  const activitiesKey = ["activities", userId];
+  const remindersKey = ["reminders", userId];
+
+  const { data: activities = [], isLoading: loadingActivities } = useQuery({
+    queryKey: activitiesKey,
+    queryFn: fetchActivities,
+    enabled: !!userId,
+  });
+
+  const { data: reminders = [] } = useQuery({
+    queryKey: remindersKey,
+    queryFn: () => fetchReminders(3),
+    enabled: !!userId,
+  });
+
+  const refreshActivities = () => queryClient.invalidateQueries({ queryKey: activitiesKey });
+  const refreshReminders = () => queryClient.invalidateQueries({ queryKey: remindersKey });
+
+  const saveActivityMutation = useMutation({
+    mutationFn: async ({ id, input }: { id?: string; input: ActivityInput }) => {
+      if (id) await updateActivity(id, input);
+      else await createActivity(input);
+    },
+    onSuccess: (_data, vars) => {
+      refreshActivities();
+      toast({ title: vars.id ? "Atividade atualizada!" : "Atividade salva!" });
+    },
+    onError: showError("Não foi possível salvar a atividade"),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
+      setActivityCompleted(id, completed),
+    onMutate: async ({ id, completed }) => {
+      // Marca na tela na hora, sem esperar a resposta do servidor.
+      queryClient.setQueryData<Activity[]>(activitiesKey, (old) =>
+        old?.map((a) => (a.id === id ? { ...a, completed } : a)),
+      );
+    },
+    onError: (error: Error) => {
+      refreshActivities();
+      showError("Não foi possível atualizar")(error);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteActivity,
+    onSuccess: () => {
+      refreshActivities();
+      toast({ title: "Atividade excluída" });
+    },
+    onError: showError("Não foi possível excluir"),
   });
 
   const reminderMutation = useMutation({
-    mutationFn: async (text: string) => {
-      await apiRequest("POST", "/api/reminders", { text });
-    },
+    mutationFn: createReminder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
+      refreshReminders();
       setReminderDialogOpen(false);
+      reminderForm.reset();
       toast({ title: "Lembrete cadastrado com sucesso!" });
     },
+    onError: showError("Não foi possível salvar o lembrete"),
+  });
+
+  const deleteReminderMutation = useMutation({
+    mutationFn: deleteReminder,
+    onSuccess: refreshReminders,
+    onError: showError("Não foi possível apagar o lembrete"),
   });
 
   const reminderForm = useForm({
-    resolver: zodResolver(insertReminderSchema),
+    resolver: zodResolver(reminderSchema),
     defaultValues: { text: "" },
   });
 
-  const onSubmitReminder = (data: { text: string }) => {
-    reminderMutation.mutate(data.text);
-    reminderForm.reset();
+  // ---------- Ações ----------
+
+  const openNewActivity = () => {
+    setEditing(null);
+    setFormKey((k) => k + 1);
+    setFormDialogOpen(true);
   };
-  
-  const mockActivities = [
-    {
-      id: "1",
-      title: "Consulta médica",
-      description: "Clínica Dr. Silva - Cardiologista",
-      date: new Date(2025, 10, 14, 16, 0),
-      category: "Saúde",
-      completed: false,
-      reminderEnabled: true,
-      reminderType: "text" as const,
-      reminderDateTime: new Date(2025, 10, 14, 15, 30),
-    },
-    {
-      id: "2",
-      title: "Almoçar",
-      date: new Date(2025, 10, 14, 12, 30),
-      category: "Casa",
-      completed: true,
-      reminderEnabled: false,
-    },
-    {
-      id: "3",
-      title: "Academia",
-      description: "Treino de pernas",
-      date: new Date(2025, 10, 14, 18, 30),
-      category: "Fitness",
-      completed: false,
-      reminderEnabled: true,
-      reminderType: "voice" as const,
-      reminderDateTime: new Date(2025, 10, 14, 18, 0),
-      reminderVoiceText: "Você tem academia em 30 minutos. Não esqueça sua garrafa de água!",
-      reminderVoiceGender: "female" as const,
-    },
-    {
-      id: "4",
-      title: "Reunião de equipe",
-      date: new Date(2025, 10, 15, 10, 0),
-      category: "Trabalho",
-      completed: false,
-      reminderEnabled: true,
-      reminderType: "text" as const,
-      reminderDateTime: new Date(2025, 10, 15, 9, 30),
-    },
-  ];
 
-  const selectedDateActivities = mockActivities.filter((activity) =>
-    isSameDay(activity.date, selectedDate)
-  );
+  const openEditActivity = (id: string) => {
+    const activity = activities.find((a) => a.id === id);
+    if (!activity) return;
+    setEditing(activity);
+    setFormKey((k) => k + 1);
+    setFormDialogOpen(true);
+  };
 
-  const todayActivities = mockActivities.filter((activity) =>
-    isToday(activity.date)
-  );
+  const handleDelete = (id: string) => {
+    const activity = activities.find((a) => a.id === id);
+    if (window.confirm(`Excluir "${activity?.title ?? "esta atividade"}"?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
 
-  const activityDates = mockActivities.map(a => a.date);
+  const cardHandlers = {
+    onEdit: openEditActivity,
+    onDelete: handleDelete,
+    onToggleComplete: (id: string, completed: boolean) => toggleMutation.mutate({ id, completed }),
+  };
+
+  // ---------- Filtros ----------
+
+  const selectedDateActivities = activities.filter((a) => isSameDay(a.date, selectedDate));
+  const todayActivities = activities.filter((a) => isToday(a.date));
+  const activityDates = activities.map((a) => a.date);
+  const firstName = (user?.user_metadata?.name as string | undefined)?.split(" ")[0];
 
   const handleVoiceRecording = (isRecording: boolean) => {
     if (isRecording) {
       setVoiceDialogOpen(true);
       setVoiceState("listening");
-      
+
       setTimeout(() => {
         setVoiceState("processing");
         setTimeout(() => {
@@ -135,13 +225,23 @@ export default function Home() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setFormDialogOpen(true)}
+              onClick={openNewActivity}
               data-testid="button-add-activity"
             >
               <Plus className="h-5 w-5" />
               <span className="sr-only">Adicionar atividade</span>
             </Button>
             <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => signOut()}
+              data-testid="button-logout"
+              title="Sair"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="sr-only">Sair</span>
+            </Button>
           </div>
         </div>
       </header>
@@ -159,7 +259,7 @@ export default function Home() {
                 <div className="flex items-center gap-3 mb-4">
                   <Sparkles className="h-6 w-6 text-primary" />
                   <div>
-                    <h2 className="text-2xl font-semibold" data-testid="text-today-title">
+                    <h2 className="text-2xl font-semibold capitalize" data-testid="text-today-title">
                       {format(new Date(), "EEEE", { locale: ptBR })}
                     </h2>
                     <p className="text-sm text-muted-foreground" data-testid="text-today-date">
@@ -167,9 +267,11 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                
+
                 <p className="text-sm text-muted-foreground">
-                  Você tem {todayActivities.length} {todayActivities.length === 1 ? "atividade" : "atividades"} para hoje
+                  {firstName ? `Olá, ${firstName}! ` : ""}
+                  Você tem {todayActivities.length}{" "}
+                  {todayActivities.length === 1 ? "atividade" : "atividades"} para hoje
                 </p>
               </Card>
 
@@ -192,10 +294,19 @@ export default function Home() {
                     reminders.map((reminder) => (
                       <div
                         key={reminder.id}
-                        className="p-2 rounded-md bg-muted/50 text-sm"
+                        className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 text-sm"
                         data-testid={`text-reminder-${reminder.id}`}
                       >
-                        {reminder.text}
+                        <span>{reminder.text}</span>
+                        <button
+                          type="button"
+                          onClick={() => deleteReminderMutation.mutate(reminder.id)}
+                          className="text-muted-foreground hover:text-foreground"
+                          title="Apagar lembrete"
+                        >
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Apagar lembrete</span>
+                        </button>
                       </div>
                     ))
                   ) : (
@@ -206,25 +317,19 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              {todayActivities.length > 0 ? (
+              {loadingActivities ? (
+                <p className="text-sm text-muted-foreground">Carregando atividades...</p>
+              ) : todayActivities.length > 0 ? (
                 todayActivities.map((activity) => (
-                  <ActivityCard
-                    key={activity.id}
-                    {...activity}
-                    onEdit={(id) => console.log("Edit:", id)}
-                    onDelete={(id) => console.log("Delete:", id)}
-                    onToggleComplete={(id, completed) =>
-                      console.log("Toggle:", id, completed)
-                    }
-                  />
+                  <ActivityCard key={activity.id} {...activity} {...cardHandlers} />
                 ))
               ) : (
                 <EmptyState
                   icon={CalendarX}
                   title="Nenhuma atividade para hoje"
-                  description="Você não tem nenhuma atividade agendada para hoje. Use o botão de voz ou adicione manualmente!"
+                  description="Você não tem nenhuma atividade agendada para hoje. Adicione uma no botão +!"
                   actionLabel="Adicionar atividade"
-                  onAction={() => setFormDialogOpen(true)}
+                  onAction={openNewActivity}
                 />
               )}
             </div>
@@ -244,15 +349,7 @@ export default function Home() {
               <div className="space-y-3">
                 {selectedDateActivities.length > 0 ? (
                   selectedDateActivities.map((activity) => (
-                    <ActivityCard
-                      key={activity.id}
-                      {...activity}
-                      onEdit={(id) => console.log("Edit:", id)}
-                      onDelete={(id) => console.log("Delete:", id)}
-                      onToggleComplete={(id, completed) =>
-                        console.log("Toggle:", id, completed)
-                      }
-                    />
+                    <ActivityCard key={activity.id} {...activity} {...cardHandlers} />
                   ))
                 ) : (
                   <EmptyState
@@ -260,7 +357,7 @@ export default function Home() {
                     title="Nenhuma atividade"
                     description="Não há atividades agendadas para esta data."
                     actionLabel="Adicionar atividade"
-                    onAction={() => setFormDialogOpen(true)}
+                    onAction={openNewActivity}
                   />
                 )}
               </div>
@@ -283,22 +380,37 @@ export default function Home() {
         transcript="adicionar consulta médica dia 12/12/2025 às 16h"
         isProcessing={voiceState === "processing"}
         onConfirm={() => {
-          console.log("Voice command confirmed");
           setVoiceDialogOpen(false);
           setVoiceState("done");
         }}
         onCancel={() => {
-          console.log("Voice command cancelled");
           setVoiceDialogOpen(false);
           setVoiceState("done");
         }}
       />
 
       <ActivityFormDialog
+        key={formKey}
         open={formDialogOpen}
         onOpenChange={setFormDialogOpen}
+        initialData={
+          editing
+            ? {
+                title: editing.title,
+                description: editing.description,
+                date: editing.date,
+                time: format(editing.date, "HH:mm"),
+                category: editing.category,
+                reminderEnabled: editing.reminderEnabled,
+                reminderType: editing.reminderType,
+                reminderDateTime: editing.reminderDateTime,
+                reminderVoiceText: editing.reminderVoiceText,
+                reminderVoiceGender: editing.reminderVoiceGender,
+              }
+            : undefined
+        }
         onSave={(activity) => {
-          console.log("Activity saved:", activity);
+          saveActivityMutation.mutate({ id: editing?.id, input: toActivityInput(activity) });
         }}
       />
 
@@ -308,7 +420,10 @@ export default function Home() {
             <DialogTitle>Novo Lembrete</DialogTitle>
           </DialogHeader>
           <Form {...reminderForm}>
-            <form onSubmit={reminderForm.handleSubmit(onSubmitReminder)} className="space-y-4">
+            <form
+              onSubmit={reminderForm.handleSubmit((data) => reminderMutation.mutate(data.text))}
+              className="space-y-4"
+            >
               <FormField
                 control={reminderForm.control}
                 name="text"

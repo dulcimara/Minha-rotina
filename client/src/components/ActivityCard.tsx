@@ -33,6 +33,15 @@ const categoryColors: Record<string, string> = {
   fitness: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
 };
 
+const categoryLabels: Record<string, string> = {
+  saude: "Saúde",
+  trabalho: "Trabalho",
+  casa: "Casa",
+  lazer: "Lazer",
+  autocuidado: "Autocuidado",
+  fitness: "Fitness",
+};
+
 export function ActivityCard({
   id,
   title,
@@ -81,7 +90,7 @@ export function ActivityCard({
               className={cn("text-xs shrink-0", categoryColors[category.toLowerCase()] || "")}
               data-testid={`badge-category-${id}`}
             >
-              {category}
+              {categoryLabels[category.toLowerCase()] ?? category}
             </Badge>
           </div>
           

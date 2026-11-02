@@ -1,0 +1,11 @@
+# Configuração de publicação no Netlify.
+# O app é só a parte do navegador (pasta client); os dados ficam no Supabase.
+[build]
+  command = "npx vite build"
+  publish = "dist/public"
+
+# Qualquer endereço do app abre a mesma página (necessário para apps React).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
