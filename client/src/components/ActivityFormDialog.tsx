@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { KindHeader } from "@/components/KindHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,10 +64,11 @@ export function ActivityFormDialog({ open, onOpenChange, onSave, activity, defau
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-activity-form">
-        <DialogHeader>
-          <DialogTitle>{activity ? "Editar compromisso" : "Novo compromisso"}</DialogTitle>
-          <DialogDescription>Preencha os detalhes. Dica: dá para fazer isso falando, pelo microfone.</DialogDescription>
-        </DialogHeader>
+        <KindHeader
+          kind="activity"
+          title={activity ? "Editar compromisso" : "Novo compromisso"}
+          description="Preencha os detalhes. Dica: dá para fazer isso falando, pelo microfone."
+        />
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">

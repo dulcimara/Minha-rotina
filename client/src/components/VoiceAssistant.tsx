@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/NativeSelect";
-import { Mic, Keyboard, Plus, X, Loader2, CalendarPlus, ShoppingCart, Cake, Droplet } from "lucide-react";
+import { Mic, Keyboard, Plus, X, Loader2 } from "lucide-react";
+import { KindHeader } from "@/components/KindHeader";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useCycles, useUserId } from "@/hooks/use-data";
 import { listen, speak, speechRecognitionSupported } from "@/lib/speech";
@@ -103,12 +104,20 @@ function draftFrom(cmd: VoiceCommand, heard: string): Draft {
   }
 }
 
-const KIND_TABS: { kind: Draft["kind"]; label: string; icon: typeof Mic }[] = [
-  { kind: "activity", label: "Compromisso", icon: CalendarPlus },
-  { kind: "shopping", label: "Compras", icon: ShoppingCart },
-  { kind: "birthday", label: "Aniversário", icon: Cake },
-  { kind: "period_start", label: "Menstruação", icon: Droplet },
-];
+/** Frase do cabeçalho da confirmação, conforme o tipo. */
+function confirmTitle(kind: Draft["kind"]): string {
+  switch (kind) {
+    case "shopping":
+      return "Vou colocar na sua lista:";
+    case "birthday":
+      return "Vou guardar este aniversário:";
+    case "period_start":
+    case "period_end":
+      return "Vou registrar no seu ciclo:";
+    default:
+      return "Vou agendar assim. Confere?";
+  }
+}
 
 const parseDay = (s: string) => {
   const [y, m, d] = s.split("-").map(Number);
@@ -315,33 +324,16 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
 
         {stage === "confirm" && (
           <>
-            <DialogHeader>
-              <DialogTitle>{understood ? "Entendi assim. Está certo?" : "Não entendi bem. Me ajuda?"}</DialogTitle>
-              <DialogDescription className="italic">“{heard}”</DialogDescription>
-            </DialogHeader>
-
-            <div className="grid grid-cols-4 gap-1">
-              {KIND_TABS.map(({ kind, label, icon: Icon }) => {
-                const active = draft.kind === kind || (kind === "period_start" && isPeriod);
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => {
-                      // Trocar de tipo começa com os campos vazios (não leva o texto anterior).
-                      if (kind === draft.kind || (kind === "period_start" && isPeriod)) return;
-                      setDraft({ ...emptyDraft(), kind, items: kind === "shopping" ? [""] : [] });
-                    }}
-                    className={`flex flex-col items-center gap-1 rounded-md p-2 text-[11px] transition-colors ${
-                      active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
+            <KindHeader
+              kind={isPeriod ? "period" : (draft.kind as "activity" | "shopping" | "birthday")}
+              title={understood ? confirmTitle(draft.kind) : "Não entendi tudo. Confere pra mim?"}
+              heard={heard}
+            />
+            {!understood && (
+              <p className="text-xs text-muted-foreground -mt-1">
+                Preencha o que faltou ou toque em “Falar de novo”. Ex.: “coloca leite na lista”, “aniversário da Ana dia 12 de março”.
+              </p>
+            )}
 
             <div className="space-y-4 py-2">
               {draft.kind === "activity" && (
@@ -360,14 +352,14 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
                       <Input id="va-time" type="time" value={draft.time} onChange={(e) => set({ time: e.target.value })} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="va-address">Endereço <span className="text-muted-foreground font-normal">(opc.)</span></Label>
-                      <Input id="va-address" value={draft.address} onChange={(e) => set({ address: e.target.value })} placeholder="Rua, número" />
+                      <Input id="va-address" value={draft.address} onChange={(e) => set({ address: e.target.value })} placeholder="Rua, número, bloco, sala" />
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="va-phone">Telefone <span className="text-muted-foreground font-normal">(opc.)</span></Label>
-                      <Input id="va-phone" type="tel" inputMode="tel" value={draft.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="(61) 9..." />
+                      <Input id="va-phone" type="tel" inputMode="tel" value={draft.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="(61) 99999-0000" />
                     </div>
                   </div>
                   <div className="space-y-1.5">

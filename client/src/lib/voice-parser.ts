@@ -337,7 +337,7 @@ function parseBirthday(text: string, now: Date): VoiceCommand {
 }
 
 const ACTIVITY_COMMAND_RE =
-  /^(?:(?:por\s+favor|ok|oi|ei|eu)\s+)*(?:incluir|inclui|inclua|adicionar|adiciona|adicione|marcar|marca|marque|agendar|agenda|agende|criar|cria|crie|colocar|coloca|coloque|registrar|registra|registre|anotar|anota|anote|novo|nova|tenho|terei|vou\s+ter)\b\s*/;
+  /^(?:(?:por\s+favor|ok|oi|ei|eu)\s+)*(?:incluir|inclui|inclua|adicionar|adiciona|adicione|marcar|marca|marque|agendar|agenda|agende|criar|cria|crie|colocar|coloca|coloque|registrar|registra|registre|anotar|anota|anote|cadastrar|cadastra|cadastre|salvar|salva|salve|novo|nova|tenho|terei|vou\s+ter)\b\s*/;
 
 const ACTIVITY_HINT_RE =
   /\b(compromisso|atividade|consulta|reuni[ãa]o|alarme|lembrete|lembrar|lembra|lembre|avis[ae]|avisar|agendar|marcar|incluir|adicionar|tenho)\b/;
@@ -362,7 +362,7 @@ function parseActivity(original: string, now: Date): VoiceCommand {
   );
   if (addressMatch) {
     address = cleanup(addressMatch[1]);
-    address = address ? address.charAt(0).toUpperCase() + address.slice(1) : undefined;
+    address = address ? formatAddress(address) : undefined;
     text = text.replace(addressMatch[0], " ");
   }
 
@@ -423,6 +423,40 @@ function parseActivity(original: string, now: Date): VoiceCommand {
 }
 
 // ---------------------------------------------------------------
+// Cumprimentos e cortesia ("Olá, gostaria de incluir...")
+// ---------------------------------------------------------------
+
+const GREETING_RE =
+  /^(?:(?:olá|ola|oi|ei|ok|bom\s+dia|boa\s+tarde|boa\s+noite|por\s+favor|tudo\s+bem|minha\s+rotina|app|aplicativo)\s*[,!.]?\s+)+/;
+const POLITE_RE =
+  /^(?:eu\s+)?(?:gostaria\s+de|queria|quero|preciso|vou|você\s+pode|voce\s+pode|pode|poderia|dá\s+pra|da\s+pra|daria\s+pra|tem\s+como)\s+(?:me\s+)?(?=(?:incluir|adicionar|marcar|agendar|criar|colocar|anotar|registrar|lembrar|avisar|cadastrar|salvar)\b)/;
+
+/** Tira "olá", "por favor", "gostaria de"... do começo, que não fazem parte do pedido. */
+export function stripPoliteness(text: string): string {
+  let out = text.trim();
+  for (let i = 0; i < 3; i++) {
+    const before = out;
+    out = out.replace(GREETING_RE, "").replace(POLITE_RE, "").replace(/\s+por\s+favor$/, "").trim();
+    if (out === before) break;
+  }
+  return out;
+}
+
+/** "710 norte bloco j sala 13" -> "710 Norte Bloco J Sala 13" */
+export function formatAddress(address: string): string {
+  const small = new Set(["de", "da", "do", "das", "dos", "e", "em", "na", "no"]);
+  return address
+    .split(/\s+/)
+    .map((w, i) => {
+      if (!w) return w;
+      if (i > 0 && small.has(w)) return w;
+      if (/^[a-zà-ú]$/.test(w)) return w.toUpperCase();
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
+    .join(" ");
+}
+
+// ---------------------------------------------------------------
 // Função principal
 // ---------------------------------------------------------------
 
@@ -437,7 +471,9 @@ export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceC
   const raw = input.trim();
   if (!raw) return { kind: "unknown", text: "" };
 
-  const text = normalizeNumbers(raw.toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " "));
+  const text = stripPoliteness(
+    normalizeNumbers(raw.toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ")),
+  );
 
   if (PERIOD_RE.test(text)) return parsePeriod(text, now);
   if (/\banivers[áa]rio\b/.test(text) && !/\b(festa|comprar|presente)\b/.test(text)) {
