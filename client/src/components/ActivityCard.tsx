@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Clock, Bell, Volume2 } from "lucide-react";
+import { Pencil, Trash2, Clock, Bell, Volume2, MapPin, Phone } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,8 @@ interface ActivityCardProps {
   id: string;
   title: string;
   description?: string;
+  address?: string;
+  phone?: string;
   date: Date;
   category: string;
   completed: boolean;
@@ -42,6 +44,8 @@ export function ActivityCard({
   id,
   title,
   description,
+  address,
+  phone,
   date,
   category,
   completed,
@@ -98,6 +102,28 @@ export function ActivityCard({
             </p>
           )}
           
+          {(address || phone) && (
+            <div className="flex flex-col gap-1 mb-2 text-sm">
+              {address && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-start gap-1.5 text-primary hover:underline"
+                >
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{address}</span>
+                </a>
+              )}
+              {phone && (
+                <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-1.5 text-primary hover:underline">
+                  <Phone className="h-4 w-4 shrink-0" />
+                  <span>{phone}</span>
+                </a>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />

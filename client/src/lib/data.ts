@@ -9,6 +9,10 @@ export interface Activity {
   id: string;
   title: string;
   description?: string;
+  /** endereço do compromisso (opcional) */
+  address?: string;
+  /** telefone para contato (opcional) */
+  phone?: string;
   date: Date;
   category: string;
   completed: boolean;
@@ -26,6 +30,8 @@ interface ActivityRow {
   id: string;
   title: string;
   description: string | null;
+  address?: string | null;
+  phone?: string | null;
   date: string;
   category: string;
   completed: boolean;
@@ -42,6 +48,8 @@ function fromRow(row: ActivityRow): Activity {
     id: row.id,
     title: row.title,
     description: row.description ?? undefined,
+    address: row.address ?? undefined,
+    phone: row.phone ?? undefined,
     date: new Date(row.date),
     category: row.category,
     completed: row.completed,
@@ -67,6 +75,9 @@ function toRow(input: ActivityInput) {
   return {
     title: input.title,
     description: input.description || null,
+    // Só envia endereço/telefone quando vieram do formulário (evita erro se a coluna ainda não existir).
+    ...(input.address !== undefined ? { address: input.address.trim() || null } : {}),
+    ...(input.phone !== undefined ? { phone: input.phone.trim() || null } : {}),
     date: input.date.toISOString(),
     category: input.category,
     reminder_enabled: input.reminderEnabled,

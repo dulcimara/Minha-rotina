@@ -11,6 +11,8 @@ export type VoiceCommand =
   | {
       kind: "activity";
       title: string;
+      address?: string;
+      phone?: string;
       date: Date;
       hasTime: boolean;
       category: string;
@@ -343,6 +345,27 @@ const ACTIVITY_HINT_RE =
 function parseActivity(original: string, now: Date): VoiceCommand {
   let text = original;
 
+  // "telefone 61 99999 0000"
+  let phone: string | undefined;
+  const phoneMatch = text.match(/\b(?:telefone|fone|celular|contato)\s*(?:é|:)?\s*([\d\s()+-]{8,})/);
+  if (phoneMatch) {
+    phone = phoneMatch[1].trim();
+    text = text.replace(phoneMatch[0], " ");
+  }
+
+  // "no endereço Rua das Flores 123" (vai até "às", "dia", "amanhã", "e me avisa"... ou o fim)
+  let address: string | undefined;
+  const addressMatch = text.match(
+    new RegExp(
+      `\\b(?:no\\s+|com\\s+)?endere[çc]o\\s*(?:é|:)?\\s+(.+?)(?=\\s+(?:às|as|ás|dia|hoje|amanh[ãa]|depois\\s+de|na\\s+(?:segunda|terça|terca|quarta|quinta|sexta)|no\\s+(?:sábado|sabado|domingo)|e\\s+me|me\\s+avis|avisar|com\\s+\\d)${END}|$)`,
+    ),
+  );
+  if (addressMatch) {
+    address = cleanup(addressMatch[1]);
+    address = address ? address.charAt(0).toUpperCase() + address.slice(1) : undefined;
+    text = text.replace(addressMatch[0], " ");
+  }
+
   const advance = findAdvance(text);
   if (advance) text = removeAll(text, advance.remove);
 
@@ -389,6 +412,8 @@ function parseActivity(original: string, now: Date): VoiceCommand {
   return {
     kind: "activity",
     title: capitalize(title),
+    address,
+    phone,
     date,
     hasTime,
     category: guessCategory(original),

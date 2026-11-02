@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { addDays, format, isAfter, isBefore, isToday, startOfDay, differenceInCalendarDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { upperFirst } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabase";
 import { ActivityCard } from "@/components/ActivityCard";
 import { EmptyState } from "@/components/EmptyState";
-import { BellRing, CalendarX, Cake, Droplet, Keyboard, Mic, ShoppingCart, Sparkles } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { BellRing, CalendarX, Cake, Droplet, Keyboard, Mic, Pencil, ShoppingCart, Sparkles } from "lucide-react";
+import { displayName, useAuth } from "@/hooks/use-auth";
 import { useBirthdays, useCycles, useShopping } from "@/hooks/use-data";
 import { alertsWereEnabled, enableAlerts, notificationsStatus } from "@/hooks/use-alerts";
 import { nextBirthdayDate, type Activity } from "@/lib/data";
@@ -59,13 +61,51 @@ function AlertsBanner() {
   );
 }
 
+/** Nome e apelido (para os alertas falarem "Cida, dentro de 10 minutos..."). */
+function NameCard({ onDone }: { onDone?: () => void }) {
+  const { user } = useAuth();
+  const meta = (user?.user_metadata ?? {}) as { name?: string; nickname?: string };
+  const [name, setName] = useState(meta.name ?? "");
+  const [nickname, setNickname] = useState(meta.nickname ?? "");
+  const [saving, setSaving] = useState(false);
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    await supabase.auth.updateUser({ data: { name: name.trim(), nickname: nickname.trim() || null } });
+    setSaving(false);
+    onDone?.();
+  };
+  return (
+    <Card className="p-4">
+      <form onSubmit={save} className="space-y-3">
+        <p className="text-sm font-medium">Como o app deve te chamar?</p>
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome *" autoComplete="name" />
+        <Input
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          placeholder="Como quer ser chamada (opcional)"
+          autoComplete="nickname"
+        />
+        <div className="flex justify-end gap-2">
+          {onDone && (
+            <Button type="button" variant="ghost" onClick={onDone}>Cancelar</Button>
+          )}
+          <Button type="submit" disabled={saving || !name.trim()}>Salvar</Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
 export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, cardHandlers }: TodayTabProps) {
   const { user } = useAuth();
   const { data: shopping = [] } = useShopping();
   const { data: birthdays = [] } = useBirthdays();
   const { data: cycles = [] } = useCycles();
 
-  const firstName = (user?.user_metadata?.name as string | undefined)?.split(" ")[0];
+  const firstName = displayName(user);
+  const [editingName, setEditingName] = useState(false);
   const today = startOfDay(new Date());
   const todayActivities = activities.filter((a) => isToday(a.date));
   const upcoming = activities
@@ -90,6 +130,17 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
           <div>
             <h2 className="text-xl font-display font-semibold" data-testid="text-today-title">
               {greeting}{firstName ? `, ${firstName}` : ""}!
+              {firstName && (
+                <button
+                  type="button"
+                  onClick={() => setEditingName(true)}
+                  className="ml-2 align-middle text-muted-foreground hover:text-primary"
+                  title="Alterar como o app te chama"
+                >
+                  <Pencil className="inline h-3.5 w-3.5" />
+                  <span className="sr-only">Alterar nome</span>
+                </button>
+              )}
             </h2>
             <p className="text-sm text-muted-foreground">
               {upperFirst(format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR }))} ·{" "}
@@ -131,6 +182,8 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
           </button>
         </div>
       </Card>
+
+      {(!firstName || editingName) && <NameCard onDone={firstName ? () => setEditingName(false) : undefined} />}
 
       <AlertsBanner />
 

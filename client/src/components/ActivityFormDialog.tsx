@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { NativeSelect } from "@/components/NativeSelect";
-import { Bell, Volume2, MessageSquare, User } from "lucide-react";
+import { Bell, Volume2, MessageSquare, User, MapPin, Phone } from "lucide-react";
 import { CATEGORIES, REMINDER_OPTIONS } from "@/lib/options";
 import type { Activity, ActivityInput } from "@/lib/data";
 
@@ -33,6 +33,8 @@ export function ActivityFormDialog({ open, onOpenChange, onSave, activity, defau
   const start = activity?.date ?? defaultDate ?? new Date();
   const [title, setTitle] = useState(activity?.title ?? "");
   const [description, setDescription] = useState(activity?.description ?? "");
+  const [address, setAddress] = useState(activity?.address ?? "");
+  const [phone, setPhone] = useState(activity?.phone ?? "");
   const [date, setDate] = useState(format(start, "yyyy-MM-dd"));
   const [time, setTime] = useState(activity ? format(activity.date, "HH:mm") : "09:00");
   const [category, setCategory] = useState(activity?.category ?? "");
@@ -52,6 +54,8 @@ export function ActivityFormDialog({ open, onOpenChange, onSave, activity, defau
     onSave({
       title: title.trim(),
       description: description.trim() || undefined,
+      ...(address.trim() || activity?.address ? { address } : {}),
+      ...(phone.trim() || activity?.phone ? { phone } : {}),
       date: new Date(y, m - 1, d, h, min),
       category,
       reminderEnabled,
@@ -89,9 +93,37 @@ export function ActivityFormDialog({ open, onOpenChange, onSave, activity, defau
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Endereço, o que levar..."
+              placeholder="O que levar, observações..."
               rows={2}
               data-testid="input-activity-description"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="address" className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" /> Endereço <span className="text-muted-foreground font-normal">(opcional)</span>
+            </Label>
+            <Input
+              id="address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Ex.: Rua das Flores, 123 — sala 4"
+              autoComplete="street-address"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="phone" className="flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5" /> Telefone <span className="text-muted-foreground font-normal">(opcional)</span>
+            </Label>
+            <Input
+              id="phone"
+              type="tel"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Ex.: (61) 99999-0000"
+              autoComplete="tel"
             />
           </div>
 

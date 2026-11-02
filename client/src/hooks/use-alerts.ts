@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useActivities, useBirthdays } from "@/hooks/use-data";
+import { displayName, useAuth } from "@/hooks/use-auth";
 import { playChime, vibrate } from "@/lib/alarm-sound";
 import { speak } from "@/lib/speech";
 import { nextBirthdayDate, type Activity, type Birthday } from "@/lib/data";
+import { alertSentence } from "@/lib/alert-text";
 
 /**
  * Confere a cada 15 segundos se chegou a hora de algum aviso.
@@ -18,6 +20,8 @@ export interface AlertItem {
   key: string;
   title: string;
   subtitle: string;
+  address?: string;
+  phone?: string;
   spoken: string;
   gender?: "male" | "female";
 }
@@ -43,7 +47,7 @@ function saveFired(set: Set<string>) {
   }
 }
 
-function activityAlert(a: Activity, now: Date): AlertItem | null {
+function activityAlert(a: Activity, now: Date, name?: string): AlertItem | null {
   if (!a.reminderEnabled || a.completed || !a.reminderDateTime) return null;
   const at = a.reminderDateTime.getTime();
   const diff = now.getTime() - at;
@@ -62,17 +66,17 @@ function activityAlert(a: Activity, now: Date): AlertItem | null {
     key: `act:${a.id}:${at}`,
     title: a.title,
     subtitle: `${when} · ${hour}`,
+    address: a.address,
+    phone: a.phone,
     spoken:
       a.reminderType === "voice" && a.reminderVoiceText
-        ? a.reminderVoiceText
-        : minutesLeft <= 0
-          ? `Lembrete: ${a.title}.`
-          : `Lembrete: ${a.title}, ${when.toLowerCase()}, às ${hour}.`,
+        ? (name ? `${name}, ` : "") + a.reminderVoiceText
+        : alertSentence(a, now, name),
     gender: a.reminderVoiceGender,
   };
 }
 
-function birthdayAlert(b: Birthday, now: Date): AlertItem | null {
+function birthdayAlert(b: Birthday, now: Date, name?: string): AlertItem | null {
   if (now.getHours() < BIRTHDAY_HOUR) return null;
   if (!isSameDay(nextBirthdayDate(b, now), now)) return null;
   const age = b.birthYear ? now.getFullYear() - b.birthYear : undefined;
@@ -80,7 +84,7 @@ function birthdayAlert(b: Birthday, now: Date): AlertItem | null {
     key: `bday:${b.id}:${format(now, "yyyy-MM-dd")}`,
     title: `Aniversário de ${b.name} 🎂`,
     subtitle: age ? `Hoje faz ${age} anos` : "É hoje!",
-    spoken: `Hoje é aniversário de ${b.name}. Não esqueça de dar os parabéns!`,
+    spoken: `${name ? `${name}, hoje` : "Hoje"} é aniversário de ${b.name}. Não esqueça de dar os parabéns!`,
   };
 }
 
@@ -100,15 +104,18 @@ async function systemNotification(item: AlertItem) {
 export function useAlerts() {
   const { data: activities = [] } = useActivities();
   const { data: birthdays = [] } = useBirthdays();
+  const { user } = useAuth();
+  const name = displayName(user);
   const [queue, setQueue] = useState<AlertItem[]>([]);
   const fired = useRef<Set<string>>(loadFired());
   const snoozed = useRef<{ item: AlertItem; at: number }[]>([]);
 
   const trigger = useCallback((item: AlertItem) => {
     setQueue((q) => (q.some((i) => i.key === item.key) ? q : [...q, item]));
-    playChime();
+    // Um toque curto e, logo em seguida, a voz.
+    playChime(1);
     vibrate();
-    setTimeout(() => speak(item.spoken, item.gender), 1200);
+    setTimeout(() => speak(item.spoken, item.gender), 900);
     void systemNotification(item);
   }, []);
 
@@ -117,11 +124,11 @@ export function useAlerts() {
     const due: AlertItem[] = [];
 
     for (const a of activities) {
-      const item = activityAlert(a, now);
+      const item = activityAlert(a, now, name);
       if (item && !fired.current.has(item.key)) due.push(item);
     }
     for (const b of birthdays) {
-      const item = birthdayAlert(b, now);
+      const item = birthdayAlert(b, now, name);
       if (item && !fired.current.has(item.key)) due.push(item);
     }
     const ready = snoozed.current.filter((s) => s.at <= now.getTime());
@@ -133,7 +140,7 @@ export function useAlerts() {
       saveFired(fired.current);
       due.forEach(trigger);
     }
-  }, [activities, birthdays, trigger]);
+  }, [activities, birthdays, trigger, name]);
 
   useEffect(() => {
     check();

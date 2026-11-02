@@ -42,6 +42,8 @@ interface VoiceAssistantProps {
 interface Draft {
   kind: "activity" | "shopping" | "birthday" | "period_start" | "period_end";
   title: string;
+  address: string;
+  phone: string;
   date: string; // AAAA-MM-DD
   time: string; // HH:mm
   category: string;
@@ -58,6 +60,8 @@ function emptyDraft(): Draft {
   return {
     kind: "activity",
     title: "",
+    address: "",
+    phone: "",
     date: format(now, "yyyy-MM-dd"),
     time: "09:00",
     category: "outros",
@@ -78,6 +82,8 @@ function draftFrom(cmd: VoiceCommand, heard: string): Draft {
         ...d,
         kind: "activity",
         title: cmd.title,
+        address: cmd.address ?? "",
+        phone: cmd.phone ?? "",
         date: format(cmd.date, "yyyy-MM-dd"),
         time: format(cmd.date, "HH:mm"),
         category: cmd.category,
@@ -185,6 +191,8 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
         date.setHours(h || 0, m || 0, 0, 0);
         await createActivity({
           title: draft.title.trim() || "Compromisso",
+          ...(draft.address.trim() ? { address: draft.address } : {}),
+          ...(draft.phone.trim() ? { phone: draft.phone } : {}),
           date,
           category: draft.category,
           reminderEnabled: draft.reminderEnabled,
@@ -350,6 +358,16 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
                     <div className="space-y-1.5">
                       <Label htmlFor="va-time">Hora</Label>
                       <Input id="va-time" type="time" value={draft.time} onChange={(e) => set({ time: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-address">Endereço <span className="text-muted-foreground font-normal">(opc.)</span></Label>
+                      <Input id="va-address" value={draft.address} onChange={(e) => set({ address: e.target.value })} placeholder="Rua, número" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-phone">Telefone <span className="text-muted-foreground font-normal">(opc.)</span></Label>
+                      <Input id="va-phone" type="tel" inputMode="tel" value={draft.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="(61) 9..." />
                     </div>
                   </div>
                   <div className="space-y-1.5">

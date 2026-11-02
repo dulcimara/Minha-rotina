@@ -20,6 +20,7 @@ function translateError(message: string): string {
 export default function Login() {
   const [mode, setMode] = useState<Mode>("entrar");
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,11 +38,12 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
+        if (!name.trim()) throw new Error("Informe seu nome.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { name },
+            data: { name: name.trim(), nickname: nickname.trim() || undefined },
             emailRedirectTo: window.location.origin,
           },
         });
@@ -72,16 +74,32 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "cadastrar" && (
-            <div className="space-y-2">
-              <Label htmlFor="name">Seu nome</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Como quer ser chamada?"
-                autoComplete="name"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="name">Seu nome *</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex.: Maria Aparecida Souza"
+                  autoComplete="name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nickname">
+                  Como quer ser chamada? <span className="text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <Input
+                  id="nickname"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="Ex.: Cida"
+                  autoComplete="nickname"
+                />
+                <p className="text-xs text-muted-foreground">É assim que o app vai te chamar nos avisos falados.</p>
+              </div>
+            </>
           )}
 
           <div className="space-y-2">
@@ -114,7 +132,7 @@ export default function Login() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           {info && <p className="text-sm text-primary">{info}</p>}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || (mode === "cadastrar" && !name.trim())}>
             {loading ? "Aguarde..." : mode === "entrar" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
