@@ -12,6 +12,8 @@ const KINDS: Record<HeaderKind, { label: string; icon: LucideIcon }> = {
 
 interface KindHeaderProps {
   kind: HeaderKind;
+  /** Troca o rótulo pequeno de cima (ex.: "Agenda do dia") */
+  label?: string;
   /** Frase principal, ex.: "Confere pra mim?" ou "Novo compromisso" */
   title: string;
   /** O que a pessoa falou (aparece entre aspas) */
@@ -24,8 +26,9 @@ interface KindHeaderProps {
  * Cabeçalho das telas de cadastro: mostra de que tipo é o cadastro
  * (compromisso, compras, aniversário ou ciclo) com o ícone em destaque.
  */
-export function KindHeader({ kind, title, heard, description }: KindHeaderProps) {
-  const { label, icon: Icon } = KINDS[kind];
+export function KindHeader({ kind, label: customLabel, title, heard, description }: KindHeaderProps) {
+  const { label: defaultLabel, icon: Icon } = KINDS[kind];
+  const label = customLabel ?? defaultLabel;
   return (
     <div className="relative overflow-hidden rounded-2xl bg-hero p-4 pr-10" data-testid={`kind-header-${kind}`}>
       {/* ícone grande e clarinho no fundo, como marca d'água */}

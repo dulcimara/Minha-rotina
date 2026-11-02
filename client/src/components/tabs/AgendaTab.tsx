@@ -3,14 +3,15 @@ import { differenceInCalendarDays, format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { upperFirst } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { KindHeader } from "@/components/KindHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DayCalendar } from "@/components/DayCalendar";
 import { ActivityCard } from "@/components/ActivityCard";
-import { EmptyState } from "@/components/EmptyState";
 import { NativeSelect } from "@/components/NativeSelect";
-import { Cake, CalendarX, Plus, Trash2 } from "lucide-react";
+import { Cake, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useBirthdays, useUserId } from "@/hooks/use-data";
 import { createBirthday, deleteBirthday, nextBirthdayDate, type Activity, type Birthday } from "@/lib/data";
@@ -138,7 +139,17 @@ function BirthdayRow({ b }: { b: Birthday }) {
 export function AgendaTab({ activities, onAdd, cardHandlers }: AgendaTabProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [addingBirthday, setAddingBirthday] = useState(false);
+  const [dayOpen, setDayOpen] = useState(false);
   const { data: birthdays = [] } = useBirthdays();
+
+  // Editar fecha a janela do dia para abrir o formulário.
+  const dayHandlers = {
+    ...cardHandlers,
+    onEdit: (id: string) => {
+      setDayOpen(false);
+      cardHandlers.onEdit(id);
+    },
+  };
 
   const dayActivities = activities.filter((a) => isSameDay(a.date, selectedDate));
   const dayBirthdays = birthdays.filter((b) => b.day === selectedDate.getDate() && b.month === selectedDate.getMonth() + 1);
@@ -150,35 +161,54 @@ export function AgendaTab({ activities, onAdd, cardHandlers }: AgendaTabProps) {
 
   return (
     <div className="space-y-6">
-      <DayCalendar selectedDate={selectedDate} onSelectDate={setSelectedDate} activityDates={markedDates} />
+      <DayCalendar
+        selectedDate={selectedDate}
+        onSelectDate={(d) => {
+          setSelectedDate(d);
+          setDayOpen(true);
+        }}
+        activityDates={markedDates}
+      />
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold" data-testid="text-selected-date">
-            {upperFirst(format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR }))}
-          </h3>
-          <Button size="sm" variant="outline" onClick={() => onAdd(selectedDate)} className="gap-1">
-            <Plus className="h-4 w-4" /> Adicionar
-          </Button>
-        </div>
+      <p className="-mt-3 text-center text-xs text-muted-foreground">
+        Toque em um dia para ver ou adicionar compromissos.
+      </p>
 
-        {dayBirthdays.map((b) => (
-          <Card key={b.id} className="p-3 flex items-center gap-2 bg-accent/10 border-accent/30">
-            <Cake className="h-5 w-5 text-accent" />
-            <span className="text-sm font-medium">Aniversário de {b.name}</span>
-          </Card>
-        ))}
-
-        {dayActivities.length > 0 ? (
-          dayActivities.map((a) => <ActivityCard key={a.id} {...a} {...cardHandlers} />)
-        ) : dayBirthdays.length === 0 ? (
-          <EmptyState
-            icon={CalendarX}
-            title="Nenhum compromisso"
-            description="Não há nada marcado para este dia."
+      {/* Compromissos do dia tocado: abrem numa janela, sem ocupar a tela da agenda */}
+      <Dialog open={dayOpen} onOpenChange={setDayOpen}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+          <KindHeader
+            kind="activity"
+            label="Agenda do dia"
+            title={upperFirst(format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR }))}
+            description={
+              dayActivities.length === 0
+                ? "Nada marcado para este dia."
+                : `${dayActivities.length} ${dayActivities.length === 1 ? "compromisso" : "compromissos"}`
+            }
           />
-        ) : null}
-      </section>
+          <div className="space-y-3">
+            {dayBirthdays.map((b) => (
+              <Card key={b.id} className="p-3 flex items-center gap-2 bg-accent/10 border-accent/30">
+                <Cake className="h-5 w-5 text-accent" />
+                <span className="text-sm font-medium">Aniversário de {b.name}</span>
+              </Card>
+            ))}
+            {dayActivities.map((a) => (
+              <ActivityCard key={a.id} {...a} {...dayHandlers} />
+            ))}
+          </div>
+          <Button
+            onClick={() => {
+              setDayOpen(false);
+              onAdd(selectedDate);
+            }}
+            className="w-full gap-1"
+          >
+            <Plus className="h-4 w-4" /> Adicionar compromisso neste dia
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <Card className="p-4">
         <div className="flex items-center justify-between mb-2">

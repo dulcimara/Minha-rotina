@@ -98,6 +98,17 @@ function NameCard({ onDone }: { onDone?: () => void }) {
   );
 }
 
+/** Abre o compartilhamento (WhatsApp...) com uma mensagem de parabéns pronta. */
+async function sendCongrats(name: string) {
+  const text = `Feliz aniversário, ${name}! 🎉🎂 Muita saúde, alegria e paz. Um beijo!`;
+  try {
+    if (navigator.share) await navigator.share({ text });
+    else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  } catch {
+    // cancelado
+  }
+}
+
 export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, cardHandlers }: TodayTabProps) {
   const { user } = useAuth();
   const { data: shopping = [] } = useShopping();
@@ -114,6 +125,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
     .slice(0, 5);
 
   const pendingShopping = shopping.filter((i) => !i.checked).length;
+  const todayBirthdays = birthdays.filter((b) => b.day === today.getDate() && b.month === today.getMonth() + 1);
   const nextBirthday = [...birthdays].sort(
     (a, b) => nextBirthdayDate(a).getTime() - nextBirthdayDate(b).getTime(),
   )[0];
@@ -204,11 +216,28 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
 
       <section className="space-y-3">
         <h3 className="font-semibold">Hoje</h3>
+        {todayBirthdays.map((b) => {
+          const age = b.birthYear ? new Date().getFullYear() - b.birthYear : undefined;
+          return (
+            <Card key={b.id} className="p-4 flex items-center gap-3 bg-hero border-0" data-testid={`birthday-today-${b.id}`}>
+              <div className="h-11 w-11 shrink-0 rounded-2xl bg-mic text-white flex items-center justify-center">
+                <Cake className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium">Hoje é aniversário de {b.name} 🎉</p>
+                <p className="text-xs text-muted-foreground">{age ? `Faz ${age} anos` : "Não esqueça de dar os parabéns!"}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => sendCongrats(b.name)} className="shrink-0">
+                Parabéns
+              </Button>
+            </Card>
+          );
+        })}
         {loading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
         ) : todayActivities.length > 0 ? (
           todayActivities.map((a) => <ActivityCard key={a.id} {...a} {...cardHandlers} />)
-        ) : (
+        ) : todayBirthdays.length > 0 ? null : (
           <EmptyState
             icon={CalendarX}
             title="Nada marcado para hoje"
