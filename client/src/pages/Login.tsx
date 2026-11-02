@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Mode = "entrar" | "cadastrar";
@@ -61,10 +60,10 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-hero flex items-center justify-center px-4">
       <Card className="w-full max-w-sm p-6 space-y-6">
         <div className="text-center space-y-2">
-          <Sparkles className="h-8 w-8 text-primary mx-auto" />
+          <img src="/icon-192.png" alt="" className="h-16 w-16 rounded-2xl mx-auto shadow-md" />
           <h1 className="text-2xl font-display font-semibold">Minha Rotina</h1>
           <p className="text-sm text-muted-foreground">
             {mode === "entrar" ? "Entre para ver sua rotina" : "Crie sua conta gratuita"}

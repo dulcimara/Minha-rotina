@@ -18,7 +18,7 @@ import { Mic, Keyboard, Plus, X, Loader2, CalendarPlus, ShoppingCart, Cake, Drop
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useCycles, useUserId } from "@/hooks/use-data";
 import { listen, speak, speechRecognitionSupported } from "@/lib/speech";
-import { parseVoiceCommand, VOICE_EXAMPLES, type VoiceCommand } from "@/lib/voice-parser";
+import { parseShoppingItems, parseVoiceCommand, VOICE_EXAMPLES, type VoiceCommand } from "@/lib/voice-parser";
 import { CATEGORIES, MONTH_NAMES, REMINDER_OPTIONS, reminderLabel } from "@/lib/options";
 import {
   addShoppingItems,
@@ -33,6 +33,8 @@ type Stage = "listening" | "typing" | "confirm";
 interface VoiceAssistantProps {
   open: boolean;
   mode: "voice" | "type";
+  /** Aberto pela aba Compras: o que for falado vira item da lista. */
+  context?: "shopping";
   onOpenChange: (open: boolean) => void;
 }
 
@@ -107,7 +109,7 @@ const parseDay = (s: string) => {
   return new Date(y, m - 1, d);
 };
 
-export function VoiceAssistant({ open, mode, onOpenChange }: VoiceAssistantProps) {
+export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssistantProps) {
   const { toast } = useToast();
   const userId = useUserId();
   const { data: cycles = [] } = useCycles();
@@ -124,7 +126,11 @@ export function VoiceAssistant({ open, mode, onOpenChange }: VoiceAssistantProps
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const interpret = (text: string) => {
-    const cmd = parseVoiceCommand(text);
+    let cmd = parseVoiceCommand(text);
+    // Na aba Compras, frases sem data/hora viram itens da lista.
+    if (context === "shopping" && (cmd.kind === "unknown" || (cmd.kind === "activity" && !cmd.hasTime))) {
+      cmd = { kind: "shopping", items: parseShoppingItems(text) };
+    }
     setHeard(text);
     setUnderstood(cmd.kind !== "unknown");
     setDraft(draftFrom(cmd, text));
@@ -155,6 +161,7 @@ export function VoiceAssistant({ open, mode, onOpenChange }: VoiceAssistantProps
     setError(null);
     setTyped("");
     setHeard("");
+    setDraft(emptyDraft());
     if (mode === "voice" && speechRecognitionSupported()) startListening();
     else {
       if (mode === "voice") setError("Este navegador não reconhece voz. Digite o que você diria:");
@@ -227,13 +234,17 @@ export function VoiceAssistant({ open, mode, onOpenChange }: VoiceAssistantProps
           <>
             <DialogHeader>
               <DialogTitle>Estou ouvindo...</DialogTitle>
-              <DialogDescription>Fale o que você precisa. Quando parar de falar, eu entendo sozinha.</DialogDescription>
+              <DialogDescription>
+                {context === "shopping"
+                  ? "Diga os itens da lista. Ex.: leite, pão e café."
+                  : "Fale tudo de uma vez: o quê, o dia e a hora. Quando você parar de falar, eu entendo sozinha."}
+              </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4 py-6">
               <div className="relative">
-                <span className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
-                <div className="relative h-20 w-20 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                  <Mic className="h-9 w-9 text-primary-foreground" />
+                <span className="absolute inset-0 rounded-full bg-accent/40 animate-ping" />
+                <div className="relative h-20 w-20 rounded-full bg-mic flex items-center justify-center shadow-lg">
+                  <Mic className="h-9 w-9 text-white" />
                 </div>
               </div>
               <p className="min-h-12 text-center text-lg font-medium" data-testid="text-transcript">
@@ -267,7 +278,7 @@ export function VoiceAssistant({ open, mode, onOpenChange }: VoiceAssistantProps
                 autoFocus
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
-                placeholder="Ex.: dentista sexta às 15h"
+                placeholder={context === "shopping" ? "Ex.: leite, pão e café" : "Ex.: dentista sexta às 15h"}
                 data-testid="input-voice-typed"
               />
               <div className="flex flex-wrap gap-2">
@@ -309,10 +320,9 @@ export function VoiceAssistant({ open, mode, onOpenChange }: VoiceAssistantProps
                     key={kind}
                     type="button"
                     onClick={() => {
-                      if (kind === "shopping" && draft.kind !== "shopping") set({ kind, items: draft.title ? [draft.title] : [""] });
-                      else if (kind === "activity" && draft.kind === "shopping") set({ kind, title: draft.items.join(", ") });
-                      else if (kind === "birthday" && !draft.name) set({ kind, name: draft.title });
-                      else if (!(kind === "period_start" && isPeriod)) set({ kind });
+                      // Trocar de tipo começa com os campos vazios (não leva o texto anterior).
+                      if (kind === draft.kind || (kind === "period_start" && isPeriod)) return;
+                      setDraft({ ...emptyDraft(), kind, items: kind === "shopping" ? [""] : [] });
                     }}
                     className={`flex flex-col items-center gap-1 rounded-md p-2 text-[11px] transition-colors ${
                       active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-secondary"

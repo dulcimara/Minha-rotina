@@ -64,25 +64,56 @@ export function listen(handlers: ListenHandlers): () => void {
   const rec = new Ctor();
   rec.lang = "pt-BR";
   rec.interimResults = true;
-  rec.continuous = false;
+  // Continua ouvindo depois de uma pausa curta (respirar entre "consulta" e "sexta às 15h").
+  rec.continuous = true;
   rec.maxAlternatives = 1;
 
   let finalText = "";
+  let interimText = "";
+  let finished = false;
+  let silenceTimer: ReturnType<typeof setTimeout> | undefined;
+  const maxTimer = setTimeout(() => stop(), MAX_LISTEN_MS);
+
+  function stop() {
+    if (silenceTimer) clearTimeout(silenceTimer);
+    clearTimeout(maxTimer);
+    try {
+      rec.stop();
+    } catch {
+      // já parou
+    }
+  }
+
   rec.onresult = (e) => {
+    // Remonta o texto inteiro a cada evento. No Android o Chrome às vezes
+    // repete trechos já reconhecidos; mergeSegment evita a duplicação.
+    let finals = "";
     let interim = "";
-    for (let i = e.resultIndex; i < e.results.length; i++) {
+    for (let i = 0; i < e.results.length; i++) {
       const r = e.results[i];
-      if (r.isFinal) finalText += r[0].transcript;
+      if (r.isFinal) finals = mergeSegment(finals, r[0].transcript);
       else interim += r[0].transcript;
     }
-    handlers.onPartial((finalText + " " + interim).trim());
+    finalText = finals;
+    interimText = interim;
+    handlers.onPartial(mergeSegment(finalText, interimText));
+
+    // Para sozinho depois de alguns segundos de silêncio.
+    if (silenceTimer) clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => stop(), SILENCE_MS);
   };
   rec.onerror = (e) => {
     if (e.error === "aborted") return;
+    if (e.error === "no-speech" && (finalText || interimText)) return;
     handlers.onError(ERROR_MESSAGES[e.error] ?? `Erro no reconhecimento de voz (${e.error}).`);
   };
   rec.onend = () => {
-    if (finalText.trim()) handlers.onFinal(finalText.trim());
+    if (finished) return;
+    finished = true;
+    if (silenceTimer) clearTimeout(silenceTimer);
+    clearTimeout(maxTimer);
+    const text = mergeSegment(finalText, interimText).trim();
+    if (text) handlers.onFinal(text);
     handlers.onEnd();
   };
 
@@ -92,7 +123,30 @@ export function listen(handlers: ListenHandlers): () => void {
     handlers.onError("Não foi possível ligar o microfone. Tente de novo.");
     handlers.onEnd();
   }
-  return () => rec.stop();
+  return stop;
+}
+
+/** Quanto tempo de silêncio encerra a escuta. */
+const SILENCE_MS = 2200;
+/** Tempo máximo ouvindo de uma vez. */
+const MAX_LISTEN_MS = 25_000;
+
+/**
+ * Junta um trecho novo ao texto já reconhecido, sem repetir:
+ * - se o trecho novo já contém o anterior (Android manda acumulado), usa o novo;
+ * - se o texto já termina com o trecho, ignora;
+ * - senão, emenda.
+ */
+export function mergeSegment(previous: string, segment: string): string {
+  const prev = previous.trim();
+  const seg = segment.trim();
+  if (!seg) return prev;
+  if (!prev) return seg;
+  const p = prev.toLowerCase();
+  const s = seg.toLowerCase();
+  if (s.startsWith(p)) return seg;
+  if (p.endsWith(s)) return prev;
+  return `${prev} ${seg}`;
 }
 
 // ---------------------------------------------------------------

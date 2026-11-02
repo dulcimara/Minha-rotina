@@ -401,6 +401,13 @@ function parseActivity(original: string, now: Date): VoiceCommand {
 // Função principal
 // ---------------------------------------------------------------
 
+/** Trata a frase inteira como itens de compra (usado quando o microfone é aberto na aba Compras). */
+export function parseShoppingItems(input: string): string[] {
+  const text = normalizeNumbers(input.trim().toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " "));
+  const cmd = parseShopping(text);
+  return cmd.kind === "shopping" ? cmd.items : [];
+}
+
 export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceCommand {
   const raw = input.trim();
   if (!raw) return { kind: "unknown", text: "" };

@@ -33,7 +33,7 @@ function AlertsBanner() {
   if (enabled) return null;
   const blocked = notificationsStatus() === "denied";
   return (
-    <Card className="p-4 border-accent/50 bg-accent/10">
+    <Card className="p-4 border-accent/40 bg-accent/10">
       <div className="flex items-start gap-3">
         <BellRing className="h-6 w-6 text-accent shrink-0 mt-0.5" />
         <div className="flex-1 space-y-2">
@@ -84,9 +84,9 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
 
   return (
     <div className="space-y-5">
-      <Card className="p-5">
+      <Card className="p-5 bg-hero border-0">
         <div className="flex items-center gap-3">
-          <Sparkles className="h-6 w-6 text-primary" />
+          <Sparkles className="h-6 w-6 text-accent" />
           <div>
             <h2 className="text-xl font-display font-semibold" data-testid="text-today-title">
               {greeting}{firstName ? `, ${firstName}` : ""}!
@@ -101,7 +101,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
         <div className="grid grid-cols-3 gap-2 mt-4">
           <button
             onClick={() => onNavigate("compras")}
-            className="rounded-lg bg-muted/70 p-3 text-left hover:bg-secondary transition-colors"
+            className="rounded-xl bg-white/70 dark:bg-white/5 p-3 text-left shadow-sm hover:bg-white transition-colors dark:hover:bg-white/10"
           >
             <ShoppingCart className="h-4 w-4 text-primary mb-1" />
             <p className="text-lg font-semibold leading-none">{pendingShopping}</p>
@@ -109,7 +109,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
           </button>
           <button
             onClick={() => onNavigate("agenda")}
-            className="rounded-lg bg-muted/70 p-3 text-left hover:bg-secondary transition-colors"
+            className="rounded-xl bg-white/70 dark:bg-white/5 p-3 text-left shadow-sm hover:bg-white transition-colors dark:hover:bg-white/10"
           >
             <Cake className="h-4 w-4 text-primary mb-1" />
             <p className="text-sm font-semibold leading-tight truncate">{nextBirthday ? nextBirthday.name : "—"}</p>
@@ -119,7 +119,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
           </button>
           <button
             onClick={() => onNavigate("ciclo")}
-            className="rounded-lg bg-muted/70 p-3 text-left hover:bg-secondary transition-colors"
+            className="rounded-xl bg-white/70 dark:bg-white/5 p-3 text-left shadow-sm hover:bg-white transition-colors dark:hover:bg-white/10"
           >
             <Droplet className="h-4 w-4 text-primary mb-1" />
             <p className="text-sm font-semibold leading-tight">
@@ -134,7 +134,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
 
       <AlertsBanner />
 
-      <Card className="p-4 bg-primary/5 border-primary/20">
+      <Card className="p-4 bg-secondary/60 border-secondary">
         <p className="text-sm font-medium mb-1">Fale comigo 🎙️</p>
         <p className="text-xs text-muted-foreground mb-3">
           Toque no microfone e diga, por exemplo: <em>“{VOICE_EXAMPLES[0]}”</em>

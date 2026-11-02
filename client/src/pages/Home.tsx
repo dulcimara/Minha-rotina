@@ -42,7 +42,10 @@ export default function Home() {
   const alerts = useAlerts();
 
   const [tab, setTab] = useState<TabName>("hoje");
-  const [voice, setVoice] = useState<{ open: boolean; mode: "voice" | "type" }>({ open: false, mode: "voice" });
+  const [voice, setVoice] = useState<{ open: boolean; mode: "voice" | "type"; context?: "shopping" }>({
+    open: false,
+    mode: "voice",
+  });
   const [form, setForm] = useState<{ open: boolean; key: number; activity: Activity | null; date?: Date }>({
     open: false,
     key: 0,
@@ -101,13 +104,14 @@ export default function Home() {
     onToggleComplete: (id: string, completed: boolean) => toggleMutation.mutate({ id, completed }),
   };
 
-  const openVoice = (mode: "voice" | "type" = "voice") => setVoice({ open: true, mode });
+  const openVoice = (mode: "voice" | "type" = "voice", context?: "shopping") => setVoice({ open: true, mode, context });
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
         <div className="container max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-xl font-display font-semibold text-primary" data-testid="text-app-title">
+          <h1 className="text-xl font-display font-semibold text-primary flex items-center gap-2" data-testid="text-app-title">
+            <img src="/icon-192.png" alt="" className="h-7 w-7 rounded-lg" />
             Minha Rotina
           </h1>
           <div className="flex items-center gap-1">
@@ -136,7 +140,7 @@ export default function Home() {
           />
         )}
         {tab === "agenda" && <AgendaTab activities={activities} onAdd={openNew} cardHandlers={cardHandlers} />}
-        {tab === "compras" && <ShoppingTab onVoice={() => openVoice("voice")} />}
+        {tab === "compras" && <ShoppingTab onVoice={() => openVoice("voice", "shopping")} />}
         {tab === "ciclo" && <CycleTab />}
       </main>
 
@@ -151,8 +155,8 @@ export default function Home() {
           ))}
           <div className="flex justify-center">
             <button
-              onClick={() => openVoice("voice")}
-              className="-mt-7 h-16 w-16 rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background flex items-center justify-center active:scale-95 transition-transform"
+              onClick={() => openVoice("voice", tab === "compras" ? "shopping" : undefined)}
+              className="-mt-7 h-16 w-16 rounded-full bg-mic text-white shadow-[0_8px_20px_-6px_hsl(320_60%_50%/0.6)] ring-4 ring-background flex items-center justify-center active:scale-95 transition-transform"
               data-testid="button-voice-recording"
             >
               <Mic className="h-7 w-7" />
@@ -168,6 +172,7 @@ export default function Home() {
       <VoiceAssistant
         open={voice.open}
         mode={voice.mode}
+        context={voice.context}
         onOpenChange={(open) => setVoice((v) => ({ ...v, open }))}
       />
 
@@ -204,7 +209,9 @@ function NavButton({
         active ? "text-primary font-semibold" : "text-muted-foreground",
       )}
     >
-      <Icon className="h-5 w-5" />
+      <span className={cn("rounded-full px-4 py-1 transition-colors", active && "bg-secondary")}>
+        <Icon className="h-5 w-5" />
+      </span>
       {label}
     </button>
   );
