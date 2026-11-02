@@ -1,0 +1,209 @@
+import { useState, type FormEvent } from "react";
+import { differenceInCalendarDays, format, isSameDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { upperFirst } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DayCalendar } from "@/components/DayCalendar";
+import { ActivityCard } from "@/components/ActivityCard";
+import { EmptyState } from "@/components/EmptyState";
+import { NativeSelect } from "@/components/NativeSelect";
+import { Cake, CalendarX, Plus, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { refresh, useBirthdays, useUserId } from "@/hooks/use-data";
+import { createBirthday, deleteBirthday, nextBirthdayDate, type Activity, type Birthday } from "@/lib/data";
+import { MONTH_NAMES } from "@/lib/options";
+
+interface AgendaTabProps {
+  activities: Activity[];
+  onAdd: (date: Date) => void;
+  cardHandlers: {
+    onEdit: (id: string) => void;
+    onDelete: (id: string) => void;
+    onToggleComplete: (id: string, completed: boolean) => void;
+  };
+}
+
+function BirthdayForm({ onDone }: { onDone: () => void }) {
+  const { toast } = useToast();
+  const userId = useUserId();
+  const [name, setName] = useState("");
+  const [day, setDay] = useState(1);
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await createBirthday({ name, day, month, birthYear: year ? Number(year) : undefined });
+      refresh(userId, "birthdays");
+      toast({ title: "Aniversário salvo!" });
+      onDone();
+    } catch (err) {
+      toast({ title: "Não foi possível salvar", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-lg bg-muted/50 p-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="b-name">Nome</Label>
+        <Input id="b-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Vó Maria" autoFocus />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="b-day">Dia</Label>
+          <NativeSelect id="b-day" value={day} onChange={(e) => setDay(Number(e.target.value))}>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="b-month">Mês</Label>
+          <NativeSelect id="b-month" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={i + 1}>{m}</option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="b-year">Ano (opc.)</Label>
+          <Input
+            id="b-year"
+            inputMode="numeric"
+            maxLength={4}
+            value={year}
+            onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
+            placeholder="1960"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancelar</Button>
+        <Button type="submit" size="sm" disabled={saving || !name.trim()}>Salvar</Button>
+      </div>
+    </form>
+  );
+}
+
+function BirthdayRow({ b }: { b: Birthday }) {
+  const userId = useUserId();
+  const { toast } = useToast();
+  const next = nextBirthdayDate(b);
+  const days = differenceInCalendarDays(next, new Date());
+  const age = b.birthYear ? next.getFullYear() - b.birthYear : undefined;
+
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <div className="h-10 w-10 shrink-0 rounded-full bg-accent/15 flex flex-col items-center justify-center leading-none">
+        <span className="text-sm font-semibold text-accent">{b.day}</span>
+        <span className="text-[9px] uppercase text-accent">{MONTH_NAMES[b.month - 1].slice(0, 3)}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate">{b.name}</p>
+        <p className="text-xs text-muted-foreground">
+          {days === 0 ? "É hoje! 🎉" : days === 1 ? "Amanhã" : `Em ${days} dias`}
+          {age ? ` · faz ${age} anos` : ""}
+        </p>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={async () => {
+          if (!window.confirm(`Apagar o aniversário de ${b.name}?`)) return;
+          try {
+            await deleteBirthday(b.id);
+            refresh(userId, "birthdays");
+          } catch (err) {
+            toast({ title: "Não foi possível apagar", description: (err as Error).message, variant: "destructive" });
+          }
+        }}
+      >
+        <Trash2 className="h-4 w-4" />
+        <span className="sr-only">Apagar</span>
+      </Button>
+    </div>
+  );
+}
+
+export function AgendaTab({ activities, onAdd, cardHandlers }: AgendaTabProps) {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [addingBirthday, setAddingBirthday] = useState(false);
+  const { data: birthdays = [] } = useBirthdays();
+
+  const dayActivities = activities.filter((a) => isSameDay(a.date, selectedDate));
+  const dayBirthdays = birthdays.filter((b) => b.day === selectedDate.getDate() && b.month === selectedDate.getMonth() + 1);
+  const markedDates = [
+    ...activities.map((a) => a.date),
+    ...birthdays.map((b) => new Date(selectedDate.getFullYear(), b.month - 1, b.day)),
+  ];
+  const sortedBirthdays = [...birthdays].sort((a, b) => nextBirthdayDate(a).getTime() - nextBirthdayDate(b).getTime());
+
+  return (
+    <div className="space-y-6">
+      <DayCalendar selectedDate={selectedDate} onSelectDate={setSelectedDate} activityDates={markedDates} />
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold" data-testid="text-selected-date">
+            {upperFirst(format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR }))}
+          </h3>
+          <Button size="sm" variant="outline" onClick={() => onAdd(selectedDate)} className="gap-1">
+            <Plus className="h-4 w-4" /> Adicionar
+          </Button>
+        </div>
+
+        {dayBirthdays.map((b) => (
+          <Card key={b.id} className="p-3 flex items-center gap-2 bg-accent/10 border-accent/30">
+            <Cake className="h-5 w-5 text-accent" />
+            <span className="text-sm font-medium">Aniversário de {b.name}</span>
+          </Card>
+        ))}
+
+        {dayActivities.length > 0 ? (
+          dayActivities.map((a) => <ActivityCard key={a.id} {...a} {...cardHandlers} />)
+        ) : dayBirthdays.length === 0 ? (
+          <EmptyState
+            icon={CalendarX}
+            title="Nenhum compromisso"
+            description="Não há nada marcado para este dia."
+          />
+        ) : null}
+      </section>
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Cake className="h-5 w-5 text-primary" /> Aniversários
+          </h3>
+          {!addingBirthday && (
+            <Button size="sm" onClick={() => setAddingBirthday(true)} data-testid="button-add-birthday">
+              Novo
+            </Button>
+          )}
+        </div>
+        {addingBirthday && <BirthdayForm onDone={() => setAddingBirthday(false)} />}
+        {sortedBirthdays.length === 0 && !addingBirthday ? (
+          <p className="text-sm text-muted-foreground italic py-2">
+            Nenhum aniversário salvo. Diga: “Aniversário da Ana dia 12 de março”.
+          </p>
+        ) : (
+          <div className="divide-y">
+            {sortedBirthdays.map((b) => (
+              <BirthdayRow key={b.id} b={b} />
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}

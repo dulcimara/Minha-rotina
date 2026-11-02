@@ -1,6 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
 
-// ---------- Tipos usados nas telas ----------
+// =============================================================
+// Atividades e compromissos
+// =============================================================
 
 export interface Activity {
   id: string;
@@ -12,19 +15,12 @@ export interface Activity {
   reminderEnabled: boolean;
   reminderType: "text" | "voice";
   reminderDateTime?: Date;
+  reminderMinutesBefore?: number;
   reminderVoiceText?: string;
   reminderVoiceGender?: "male" | "female";
 }
 
 export type ActivityInput = Omit<Activity, "id" | "completed">;
-
-export interface Reminder {
-  id: string;
-  text: string;
-  createdAt: Date;
-}
-
-// ---------- Conversão entre o banco (snake_case) e o app ----------
 
 interface ActivityRow {
   id: string;
@@ -36,6 +32,7 @@ interface ActivityRow {
   reminder_enabled: boolean;
   reminder_type: "text" | "voice";
   reminder_date_time: string | null;
+  reminder_minutes_before: number | null;
   reminder_voice_text: string | null;
   reminder_voice_gender: "male" | "female" | null;
 }
@@ -51,12 +48,22 @@ function fromRow(row: ActivityRow): Activity {
     reminderEnabled: row.reminder_enabled,
     reminderType: row.reminder_type,
     reminderDateTime: row.reminder_date_time ? new Date(row.reminder_date_time) : undefined,
+    reminderMinutesBefore: row.reminder_minutes_before ?? undefined,
     reminderVoiceText: row.reminder_voice_text ?? undefined,
     reminderVoiceGender: row.reminder_voice_gender ?? undefined,
   };
 }
 
+/** Calcula a hora do aviso a partir da hora da atividade e dos minutos de antecedência. */
+export function reminderTimeFor(date: Date, minutesBefore: number): Date {
+  return new Date(date.getTime() - minutesBefore * 60_000);
+}
+
 function toRow(input: ActivityInput) {
+  const minutes = input.reminderMinutesBefore ?? 0;
+  const reminderAt = input.reminderEnabled
+    ? input.reminderDateTime ?? reminderTimeFor(input.date, minutes)
+    : null;
   return {
     title: input.title,
     description: input.description || null,
@@ -64,8 +71,8 @@ function toRow(input: ActivityInput) {
     category: input.category,
     reminder_enabled: input.reminderEnabled,
     reminder_type: input.reminderType,
-    reminder_date_time:
-      input.reminderEnabled && input.reminderDateTime ? input.reminderDateTime.toISOString() : null,
+    reminder_date_time: reminderAt ? reminderAt.toISOString() : null,
+    reminder_minutes_before: input.reminderEnabled ? minutes : null,
     reminder_voice_text:
       input.reminderEnabled && input.reminderType === "voice" ? input.reminderVoiceText || null : null,
     reminder_voice_gender:
@@ -73,7 +80,6 @@ function toRow(input: ActivityInput) {
   };
 }
 
-// ---------- Atividades ----------
 // O Supabase só devolve as linhas da pessoa logada (regras de segurança no banco).
 
 export async function fetchActivities(): Promise<Activity[]> {
@@ -105,7 +111,15 @@ export async function deleteActivity(id: string) {
   if (error) throw error;
 }
 
-// ---------- Lembretes rápidos ----------
+// =============================================================
+// Lembretes rápidos
+// =============================================================
+
+export interface Reminder {
+  id: string;
+  text: string;
+  createdAt: Date;
+}
 
 export async function fetchReminders(limit = 3): Promise<Reminder[]> {
   const { data, error } = await supabase
@@ -128,5 +142,149 @@ export async function createReminder(text: string) {
 
 export async function deleteReminder(id: string) {
   const { error } = await supabase.from("reminders").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// =============================================================
+// Lista de compras
+// =============================================================
+
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  checked: boolean;
+}
+
+export async function fetchShoppingItems(): Promise<ShoppingItem[]> {
+  const { data, error } = await supabase
+    .from("shopping_items")
+    .select("id, name, checked")
+    .order("checked", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ShoppingItem[];
+}
+
+export async function addShoppingItems(names: string[]) {
+  const rows = names.map((n) => n.trim()).filter(Boolean).map((name) => ({ name }));
+  if (rows.length === 0) return;
+  const { error } = await supabase.from("shopping_items").insert(rows);
+  if (error) throw error;
+}
+
+export async function setShoppingItemChecked(id: string, checked: boolean) {
+  const { error } = await supabase.from("shopping_items").update({ checked }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteShoppingItem(id: string) {
+  const { error } = await supabase.from("shopping_items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function clearCheckedShoppingItems() {
+  const { error } = await supabase.from("shopping_items").delete().eq("checked", true);
+  if (error) throw error;
+}
+
+// =============================================================
+// Aniversários
+// =============================================================
+
+export interface Birthday {
+  id: string;
+  name: string;
+  day: number;
+  month: number; // 1 a 12
+  birthYear?: number;
+}
+
+export async function fetchBirthdays(): Promise<Birthday[]> {
+  const { data, error } = await supabase
+    .from("birthdays")
+    .select("id, name, day, month, birth_year")
+    .order("month")
+    .order("day");
+  if (error) throw error;
+  return (data ?? []).map((b) => ({
+    id: b.id as string,
+    name: b.name as string,
+    day: b.day as number,
+    month: b.month as number,
+    birthYear: (b.birth_year as number | null) ?? undefined,
+  }));
+}
+
+export async function createBirthday(input: Omit<Birthday, "id">) {
+  const { error } = await supabase.from("birthdays").insert({
+    name: input.name.trim(),
+    day: input.day,
+    month: input.month,
+    birth_year: input.birthYear ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function deleteBirthday(id: string) {
+  const { error } = await supabase.from("birthdays").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Próxima data (hoje ou no futuro) em que o aniversário acontece. */
+export function nextBirthdayDate(b: Birthday, today = new Date()): Date {
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let next = new Date(today.getFullYear(), b.month - 1, b.day);
+  if (next < start) next = new Date(today.getFullYear() + 1, b.month - 1, b.day);
+  return next;
+}
+
+// =============================================================
+// Ciclo menstrual
+// =============================================================
+
+export interface Cycle {
+  id: string;
+  startDate: Date;
+  endDate?: Date;
+  notes?: string;
+}
+
+// Datas sem hora são guardadas como "AAAA-MM-DD" e lidas no fuso local.
+const toDay = (d: Date) => format(d, "yyyy-MM-dd");
+const fromDay = (s: string) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+export async function fetchCycles(): Promise<Cycle[]> {
+  const { data, error } = await supabase
+    .from("menstrual_cycles")
+    .select("id, start_date, end_date, notes")
+    .order("start_date", { ascending: false })
+    .limit(24);
+  if (error) throw error;
+  return (data ?? []).map((c) => ({
+    id: c.id as string,
+    startDate: fromDay(c.start_date as string),
+    endDate: c.end_date ? fromDay(c.end_date as string) : undefined,
+    notes: (c.notes as string | null) ?? undefined,
+  }));
+}
+
+export async function startCycle(date: Date) {
+  const { error } = await supabase.from("menstrual_cycles").insert({ start_date: toDay(date) });
+  if (error) throw error;
+}
+
+export async function endCycle(id: string, date: Date) {
+  const { error } = await supabase
+    .from("menstrual_cycles")
+    .update({ end_date: toDay(date) })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteCycle(id: string) {
+  const { error } = await supabase.from("menstrual_cycles").delete().eq("id", id);
   if (error) throw error;
 }

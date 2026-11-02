@@ -2,10 +2,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Clock, Bell, Volume2, MessageSquare } from "lucide-react";
+import { Pencil, Trash2, Clock, Bell, Volume2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { categoryLabel, reminderLabel } from "@/lib/options";
 
 interface ActivityCardProps {
   id: string;
@@ -17,6 +18,8 @@ interface ActivityCardProps {
   reminderEnabled?: boolean;
   reminderType?: "text" | "voice";
   reminderDateTime?: Date;
+  reminderMinutesBefore?: number;
+  showDate?: boolean;
   reminderVoiceText?: string;
   reminderVoiceGender?: "male" | "female";
   onEdit?: (id: string) => void;
@@ -31,15 +34,8 @@ const categoryColors: Record<string, string> = {
   lazer: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   autocuidado: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
   fitness: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-};
-
-const categoryLabels: Record<string, string> = {
-  saude: "Saúde",
-  trabalho: "Trabalho",
-  casa: "Casa",
-  lazer: "Lazer",
-  autocuidado: "Autocuidado",
-  fitness: "Fitness",
+  familia: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  outros: "bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300",
 };
 
 export function ActivityCard({
@@ -52,6 +48,8 @@ export function ActivityCard({
   reminderEnabled,
   reminderType,
   reminderDateTime,
+  reminderMinutesBefore,
+  showDate,
   reminderVoiceText,
   reminderVoiceGender,
   onEdit,
@@ -90,7 +88,7 @@ export function ActivityCard({
               className={cn("text-xs shrink-0", categoryColors[category.toLowerCase()] || "")}
               data-testid={`badge-category-${id}`}
             >
-              {categoryLabels[category.toLowerCase()] ?? category}
+              {categoryLabel(category)}
             </Badge>
           </div>
           
@@ -100,10 +98,12 @@ export function ActivityCard({
             </p>
           )}
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span data-testid={`text-time-${id}`}>{format(date, "HH:mm", { locale: ptBR })}</span>
+              <span data-testid={`text-time-${id}`}>
+                {format(date, showDate ? "EEE dd/MM · HH:mm" : "HH:mm", { locale: ptBR })}
+              </span>
             </div>
             
             {reminderEnabled && reminderDateTime && (
@@ -111,10 +111,12 @@ export function ActivityCard({
                 {reminderType === "voice" ? (
                   <Volume2 className="h-3.5 w-3.5" />
                 ) : (
-                  <MessageSquare className="h-3.5 w-3.5" />
+                  <Bell className="h-3.5 w-3.5" />
                 )}
                 <span data-testid={`text-reminder-${id}`}>
-                  {format(reminderDateTime, "dd/MM HH:mm", { locale: ptBR })}
+                  {reminderMinutesBefore !== undefined
+                    ? reminderLabel(reminderMinutesBefore)
+                    : format(reminderDateTime, "dd/MM HH:mm", { locale: ptBR })}
                 </span>
               </div>
             )}
