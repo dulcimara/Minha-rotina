@@ -226,6 +226,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
               <div className="flex-1 min-w-0">
                 <p className="font-medium">Hoje é aniversário de {b.name} 🎉</p>
                 <p className="text-xs text-muted-foreground">{age ? `Faz ${age} anos` : "Não esqueça de dar os parabéns!"}</p>
+                {b.giftIdeas && <p className="mt-1 text-xs text-foreground/80">🎁 Ideia de presente: {b.giftIdeas}</p>}
               </div>
               <Button size="sm" variant="outline" onClick={() => sendCongrats(b.name)} className="shrink-0">
                 Parabéns

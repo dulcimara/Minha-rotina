@@ -83,8 +83,8 @@ function birthdayAlert(b: Birthday, now: Date, name?: string): AlertItem | null 
   return {
     key: `bday:${b.id}:${format(now, "yyyy-MM-dd")}`,
     title: `Aniversário de ${b.name} 🎂`,
-    subtitle: age ? `Hoje faz ${age} anos` : "É hoje!",
-    spoken: `${name ? `${name}, hoje` : "Hoje"} é aniversário de ${b.name}. Não esqueça de dar os parabéns!`,
+    subtitle: (age ? `Hoje faz ${age} anos` : "É hoje!") + (b.giftIdeas ? ` · 🎁 ${b.giftIdeas}` : ""),
+    spoken: `${name ? `${name}, hoje` : "Hoje"} é aniversário de ${b.name}. Não esqueça de dar os parabéns!${b.giftIdeas ? ` Ideia de presente: ${b.giftIdeas}.` : ""}`,
   };
 }
 

@@ -52,6 +52,7 @@ interface Draft {
   minutesBefore: number;
   items: string[];
   name: string;
+  gift: string;
   day: number;
   month: number;
 }
@@ -70,6 +71,7 @@ function emptyDraft(): Draft {
     minutesBefore: 30,
     items: [],
     name: "",
+    gift: "",
     day: now.getDate(),
     month: now.getMonth() + 1,
   };
@@ -94,7 +96,7 @@ function draftFrom(cmd: VoiceCommand, heard: string): Draft {
     case "shopping":
       return { ...d, kind: "shopping", items: cmd.items.length ? cmd.items : [""] };
     case "birthday":
-      return { ...d, kind: "birthday", name: cmd.name, day: cmd.day ?? d.day, month: cmd.month ?? d.month };
+      return { ...d, kind: "birthday", name: cmd.name, gift: cmd.giftIdeas ?? "", day: cmd.day ?? d.day, month: cmd.month ?? d.month };
     case "period_start":
     case "period_end":
       return { ...d, kind: cmd.kind, date: format(cmd.date, "yyyy-MM-dd") };
@@ -218,7 +220,12 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
         spoken = items.length === 1 ? `${items[0]} foi para a lista de compras.` : `${items.length} itens foram para a lista de compras.`;
       } else if (draft.kind === "birthday") {
         if (!draft.name.trim()) throw new Error("Diga de quem é o aniversário.");
-        await createBirthday({ name: draft.name, day: draft.day, month: draft.month });
+        await createBirthday({
+          name: draft.name,
+          day: draft.day,
+          month: draft.month,
+          ...(draft.gift.trim() ? { giftIdeas: draft.gift } : {}),
+        });
         refresh(userId, "birthdays");
         spoken = `Aniversário de ${draft.name} salvo: ${draft.day} de ${MONTH_NAMES[draft.month - 1]}.`;
       } else if (draft.kind === "period_start") {
@@ -443,6 +450,12 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
                         ))}
                       </NativeSelect>
                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="va-gift">
+                      Ideias de presente <span className="text-muted-foreground font-normal">(opcional)</span>
+                    </Label>
+                    <Input id="va-gift" value={draft.gift} onChange={(e) => set({ gift: e.target.value })} placeholder="Ex.: perfume, livro" />
                   </div>
                   <p className="text-xs text-muted-foreground">Você recebe um alerta no dia, às 9h.</p>
                 </>

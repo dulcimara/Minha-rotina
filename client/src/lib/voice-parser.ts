@@ -20,7 +20,7 @@ export type VoiceCommand =
       minutesBefore: number;
     }
   | { kind: "shopping"; items: string[] }
-  | { kind: "birthday"; name: string; day?: number; month?: number }
+  | { kind: "birthday"; name: string; day?: number; month?: number; giftIdeas?: string }
   | { kind: "period_start"; date: Date }
   | { kind: "period_end"; date: Date }
   | { kind: "unknown"; text: string };
@@ -318,7 +318,15 @@ function parsePeriod(text: string, now: Date): VoiceCommand {
   return PERIOD_END_RE.test(text) ? { kind: "period_end", date } : { kind: "period_start", date };
 }
 
-function parseBirthday(text: string, now: Date): VoiceCommand {
+function parseBirthday(input: string, now: Date): VoiceCommand {
+  // "..., ideia de presente perfume" (vai até o fim da frase)
+  let text = input;
+  let giftIdeas: string | undefined;
+  const giftMatch = text.match(/[,;]?\s*(?:ideias?\s+de\s+presentes?|sugest(?:ão|ao|ões|oes)\s+de\s+presentes?|presente)\s*(?:é|:|seria|pode\s+ser)?\s+(.+)$/);
+  if (giftMatch) {
+    giftIdeas = capitalize(cleanup(giftMatch[1]));
+    text = text.slice(0, giftMatch.index);
+  }
   const found = findDate(text, now, true);
   const rest = found ? removeAll(text, found.remove) : text;
 
@@ -333,6 +341,7 @@ function parseBirthday(text: string, now: Date): VoiceCommand {
     name: capitalize(name),
     day: found ? found.date.getDate() : undefined,
     month: found ? found.date.getMonth() + 1 : undefined,
+    giftIdeas: giftIdeas || undefined,
   };
 }
 
@@ -476,7 +485,7 @@ export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceC
   );
 
   if (PERIOD_RE.test(text)) return parsePeriod(text, now);
-  if (/\banivers[áa]rio\b/.test(text) && !/\b(festa|comprar|presente)\b/.test(text)) {
+  if (/\banivers[áa]rio\b/.test(text) && !/\b(festa|comprar)\b/.test(text)) {
     return parseBirthday(text, now);
   }
   if (SHOPPING_RE.test(text)) return parseShopping(text);

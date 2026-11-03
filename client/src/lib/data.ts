@@ -208,14 +208,13 @@ export interface Birthday {
   day: number;
   month: number; // 1 a 12
   birthYear?: number;
+  /** ideias de presente (opcional) */
+  giftIdeas?: string;
 }
 
 export async function fetchBirthdays(): Promise<Birthday[]> {
-  const { data, error } = await supabase
-    .from("birthdays")
-    .select("id, name, day, month, birth_year")
-    .order("month")
-    .order("day");
+  // "*" para continuar funcionando mesmo antes de existir a coluna de presentes.
+  const { data, error } = await supabase.from("birthdays").select("*").order("month").order("day");
   if (error) throw error;
   return (data ?? []).map((b) => ({
     id: b.id as string,
@@ -223,16 +222,28 @@ export async function fetchBirthdays(): Promise<Birthday[]> {
     day: b.day as number,
     month: b.month as number,
     birthYear: (b.birth_year as number | null) ?? undefined,
+    giftIdeas: (b.gift_ideas as string | null) ?? undefined,
   }));
 }
 
-export async function createBirthday(input: Omit<Birthday, "id">) {
-  const { error } = await supabase.from("birthdays").insert({
+function birthdayRow(input: Omit<Birthday, "id">) {
+  return {
     name: input.name.trim(),
     day: input.day,
     month: input.month,
     birth_year: input.birthYear ?? null,
-  });
+    // Só envia quando preenchido (evita erro se a coluna ainda não existir).
+    ...(input.giftIdeas !== undefined ? { gift_ideas: input.giftIdeas.trim() || null } : {}),
+  };
+}
+
+export async function createBirthday(input: Omit<Birthday, "id">) {
+  const { error } = await supabase.from("birthdays").insert(birthdayRow(input));
+  if (error) throw error;
+}
+
+export async function updateBirthday(id: string, input: Omit<Birthday, "id">) {
+  const { error } = await supabase.from("birthdays").update(birthdayRow(input)).eq("id", id);
   if (error) throw error;
 }
 
@@ -282,8 +293,19 @@ export async function fetchCycles(): Promise<Cycle[]> {
   }));
 }
 
-export async function startCycle(date: Date) {
-  const { error } = await supabase.from("menstrual_cycles").insert({ start_date: toDay(date) });
+export async function startCycle(date: Date, end?: Date) {
+  const { error } = await supabase
+    .from("menstrual_cycles")
+    .insert({ start_date: toDay(date), end_date: end ? toDay(end) : null });
+  if (error) throw error;
+}
+
+/** Corrige as datas de um registro já salvo (término vazio = ainda em andamento). */
+export async function updateCycle(id: string, start: Date, end?: Date) {
+  const { error } = await supabase
+    .from("menstrual_cycles")
+    .update({ start_date: toDay(start), end_date: end ? toDay(end) : null })
+    .eq("id", id);
   if (error) throw error;
 }
 
