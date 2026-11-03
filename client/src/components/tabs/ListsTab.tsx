@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { KindHeader } from "@/components/KindHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { CatalogDialog } from "@/components/CatalogDialog";
+import { QuantityStepper } from "@/components/QuantityStepper";
 import {
   BookOpen,
   CheckCheck,
@@ -202,9 +203,8 @@ function ItemRow({
   onRemove: () => void;
   showQuantity: boolean;
 }) {
-  const [qty, setQty] = useState(item.quantity ?? "");
   return (
-    <div className="flex items-center gap-3 py-2.5">
+    <div className="flex items-center gap-2.5 py-2.5">
       <Checkbox
         checked={item.checked}
         onCheckedChange={(c) => onToggle(!!c)}
@@ -213,15 +213,7 @@ function ItemRow({
       />
       <span className={cn("flex-1 min-w-0 break-words", item.checked && "line-through text-muted-foreground")}>{item.name}</span>
       {showQuantity && (
-        <Input
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          onBlur={() => qty !== (item.quantity ?? "") && onQuantity(qty)}
-          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-          placeholder="Qtd"
-          aria-label={`Quantidade de ${item.name}`}
-          className="h-8 w-24 px-2 text-center text-sm"
-        />
+        <QuantityStepper value={item.quantity ?? ""} onChange={onQuantity} label={`Quantidade de ${item.name}`} />
       )}
       <button onClick={onRemove} className="text-muted-foreground hover:text-foreground p-1" title="Apagar">
         <X className="h-4 w-4" />
@@ -339,18 +331,12 @@ function ListItems({
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={isShopping ? "Ex.: arroz, leite" : "Novo item"}
+            placeholder={isShopping ? "Item" : "Novo item"}
             list={isShopping ? "catalogo-itens" : undefined}
             data-testid="input-item"
           />
           {isShopping && (
-            <Input
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              placeholder="Qtd"
-              aria-label="Quantidade"
-              className="w-24 px-2 text-center"
-            />
+            <QuantityStepper value={qty} onChange={setQty} label="Quantidade" />
           )}
           <Button type="submit" size="icon" className="shrink-0" disabled={!name.trim()}>
             <Plus className="h-5 w-5" />
