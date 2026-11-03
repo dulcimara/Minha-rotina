@@ -18,6 +18,7 @@ import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWork
 import { MedsDialog } from "@/components/MedsDialog";
 import { AppIcon, type AppIconName } from "@/components/AppIcons";
 import { WorkoutsDialog } from "@/components/WorkoutsDialog";
+import { RemindersCard } from "@/components/RemindersCard";
 import { thisWeekCount } from "@/lib/workouts";
 import { dosesOn } from "@/lib/meds";
 import type { Activity } from "@/lib/data";
@@ -228,6 +229,8 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildre
           onClick={onOpenMovies}
         />
       </nav>
+
+      <RemindersCard />
 
       <InstallBanner />
 

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * As cores vêm da paleta escolhida (--mic-1 e --mic-2), então mudam junto com o tema.
  * O microfone fica de fora: ele é só o botão de falar.
  */
-export type AppIconName = "agenda" | "listas" | "ciclo" | "remedios" | "filhos" | "aniversarios" | "filmes" | "atividade" | "entendi";
+export type AppIconName = "agenda" | "listas" | "ciclo" | "remedios" | "filhos" | "aniversarios" | "filmes" | "atividade" | "lembretes" | "entendi";
 
 const HEART = "M0 22 C-30 -4 -40 -28 -22 -40 C-10 -48 0 -40 0 -30 C0 -40 10 -48 22 -40 C40 -28 30 -4 0 22 Z";
 const SPARK = "M404 78 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10z";
@@ -134,6 +134,20 @@ function glyph(name: AppIconName, ink: string, sh: string): ReactNode {
             <rect x="354" y="166" width="62" height="180" rx="26" fill={fillInk} opacity="0.85" />
           </g>
           <path d={SPARK} fill="#fff" />
+        </>
+      );
+    case "lembretes":
+      // sininho com laço de "não esquecer"
+      return (
+        <>
+          <g filter={shadow}>
+            <path d="M256 104 c-66 0 -112 50 -112 116 v62 c0 22 -10 42 -26 56 l-10 10 c-8 8 -2 22 10 22 h276 c12 0 18 -14 10 -22 l-10 -10 c-16 -14 -26 -34 -26 -56 v-62 c0 -66 -46 -116 -112 -116z" fill="#fff" />
+          </g>
+          <circle cx="256" cy="98" r="18" fill="#fff" />
+          <path d="M214 392 a42 42 0 0 0 84 0z" fill={fillInk} />
+          <path d="M190 236 h132" stroke={fillInk} strokeWidth="20" strokeLinecap="round" opacity="0.35" />
+          <path d={SPARK} fill="#fff" />
+          <circle cx="112" cy="132" r="14" fill="#fff" opacity="0.85" />
         </>
       );
     case "entendi":

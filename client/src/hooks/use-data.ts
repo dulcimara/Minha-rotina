@@ -53,7 +53,7 @@ export function useActivities() {
 
 export function useReminders() {
   const userId = useUserId();
-  return useQuery({ queryKey: keys.reminders(userId), queryFn: () => fetchReminders(3), enabled: !!userId });
+  return useQuery({ queryKey: keys.reminders(userId), queryFn: fetchReminders, enabled: !!userId });
 }
 
 /** Itens de uma lista. Sem listId = lista de compras. */

@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QuantityStepperProps {
-  /** quantidade em texto: "2", "2 kg", "12 rolos" ou vazio */
+  /** quantidade: só número ("2", "1,5") ou vazio */
   value: string;
   /** chamado ao tocar nas setas ou ao terminar de digitar */
   onChange: (value: string) => void;
@@ -11,37 +11,38 @@ interface QuantityStepperProps {
   className?: string;
 }
 
-/** Separa o número do resto: "2 kg" -> { n: 2, unit: " kg" }; "1/2 dúzia" -> sem número inteiro. */
-function split(value: string): { n: number | null; unit: string } {
-  const m = value.trim().match(/^(\d+(?:[.,]\d+)?)(.*)$/);
-  if (!m) return { n: null, unit: value.trim() ? ` ${value.trim()}` : "" };
-  return { n: Number(m[1].replace(",", ".")), unit: m[2] };
+/** Deixa só o número (com vírgula para meio quilo, por exemplo): "12 caixas" -> "12". */
+export function onlyNumber(v: string | undefined): string {
+  if (!v) return "";
+  if (/^\s*1\/2/.test(v)) return "0,5";
+  const m = v.replace(".", ",").match(/\d+(?:,\d{0,2})?/);
+  return m ? m[0].replace(/,$/, "") : "";
 }
 
-const format = (n: number, unit: string) => {
-  const num = Number.isInteger(n) ? String(n) : String(n).replace(".", ",");
-  return `${num}${unit}`.trim();
-};
+const toNum = (v: string) => (v ? Number(v.replace(",", ".")) : null);
+const format = (n: number) => (Number.isInteger(n) ? String(n) : String(n).replace(".", ","));
 
 /** Quantidade com setinhas: ▾ diminui, ▴ aumenta; tocar no número permite digitar. */
 export function QuantityStepper({ value, onChange, label, className }: QuantityStepperProps) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
+  const [text, setText] = useState(onlyNumber(value));
+  useEffect(() => setText(onlyNumber(value)), [value]);
 
   const step = (delta: number) => {
-    const { n, unit } = split(text);
+    const n = toNum(text);
     let next: string;
-    if (n === null) next = delta > 0 ? format(1, unit) : "";
+    if (n === null) next = delta > 0 ? "1" : "";
     else {
       const v = Math.max(0, Math.round((n + delta) * 100) / 100);
-      next = v === 0 ? "" : format(v, unit);
+      next = v === 0 ? "" : format(v);
     }
     setText(next);
     onChange(next);
   };
 
   const commit = () => {
-    if (text.trim() !== value.trim()) onChange(text.trim());
+    const clean = text.replace(/,$/, "");
+    if (clean !== text) setText(clean);
+    if (clean !== value.trim()) onChange(clean);
   };
 
   const empty = !text.trim();
@@ -66,7 +67,13 @@ export function QuantityStepper({ value, onChange, label, className }: QuantityS
       </button>
       <input
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        // só números (e uma vírgula para quantidades como 1,5)
+        onChange={(e) => {
+          const v = e.target.value.replace(".", ",").replace(/[^\d,]/g, "");
+          const [int, ...dec] = v.split(",");
+          setText(dec.length ? `${int},${dec.join("").slice(0, 2)}` : int);
+        }}
+        inputMode="decimal"
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -76,8 +83,8 @@ export function QuantityStepper({ value, onChange, label, className }: QuantityS
         }}
         placeholder="Qtd"
         aria-label={label}
-        // cresce com o texto ("2" fica estreito, "12 rolos" fica mais largo)
-        style={{ width: `${Math.min(Math.max(text.length, 3), 9) + 1}ch` }}
+        // cresce com o número ("2" fica estreito, "120" um pouco mais largo)
+        style={{ width: `${Math.min(Math.max(text.length, 3), 6) + 1}ch` }}
         className="h-full min-w-0 bg-transparent text-center text-sm font-medium outline-none placeholder:text-muted-foreground placeholder:font-normal"
       />
       <button

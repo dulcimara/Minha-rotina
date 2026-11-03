@@ -34,8 +34,9 @@ export default function Privacy() {
           <section>
             <h2>Quais dados guardamos</h2>
             <ul>
-              <li>Conta: nome, como quer ser chamada, e-mail e senha (a senha é guardada de forma cifrada).</li>
-              <li>O que você cadastra: compromissos, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, perfis dos filhos.</li>
+              <li>Conta: nome, como quer ser chamada, data de nascimento, e-mail e senha (a senha é guardada de forma cifrada).</li>
+              <li>Opcional, para estimar calorias: sexo e peso.</li>
+              <li>O que você cadastra: compromissos, lembretes, exercícios, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, perfis dos filhos.</li>
               <li>
                 <strong>Dados sensíveis de saúde</strong>, só se você usar: ciclo menstrual, sintomas e humor, e remédios. Pedimos
                 o seu consentimento específico antes do primeiro registro do ciclo.

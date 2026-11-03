@@ -1,3 +1,5 @@
+import { onlyNumber } from "@/components/QuantityStepper";
+import { nextDue, type Repeat } from "@/lib/lembretes";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 
@@ -154,25 +156,74 @@ export async function deleteActivity(id: string) {
 export interface Reminder {
   id: string;
   text: string;
+  emoji?: string;
+  dueDate?: string; // AAAA-MM-DD
+  dueTime: string; // HH:MM
+  repeat: Repeat;
+  alert: boolean;
+  notes?: string;
+  doneAt?: Date;
   createdAt: Date;
 }
 
-export async function fetchReminders(limit = 3): Promise<Reminder[]> {
+const toReminder = (r: Record<string, unknown>): Reminder => ({
+  id: r.id as string,
+  text: r.text as string,
+  emoji: (r.emoji as string | null) ?? undefined,
+  dueDate: (r.due_date as string | null) ?? undefined,
+  dueTime: (r.due_time as string | null) ?? "09:00",
+  repeat: ((r.repeat as Repeat | null) ?? "nao") as Repeat,
+  alert: r.alert !== false,
+  notes: (r.notes as string | null) ?? undefined,
+  doneAt: r.done_at ? new Date(r.done_at as string) : undefined,
+  createdAt: new Date(r.created_at as string),
+});
+
+/** Lembretes pendentes e os feitos nos últimos 30 dias. */
+export async function fetchReminders(): Promise<Reminder[]> {
+  const since = new Date(Date.now() - 30 * 864e5).toISOString();
   const { data, error } = await supabase
     .from("reminders")
-    .select("id, text, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data ?? []).map((r) => ({
-    id: r.id as string,
-    text: r.text as string,
-    createdAt: new Date(r.created_at as string),
-  }));
+    .select("*")
+    .or(`done_at.is.null,done_at.gte.${since}`)
+    .order("due_date", { ascending: true, nullsFirst: false });
+  if (error) {
+    // etapa 10 ainda não rodada: as colunas novas não existem
+    if (error.code === "42703" || error.code === "PGRST100") {
+      const old = await supabase.from("reminders").select("id, text, created_at");
+      return (old.data ?? []).map((r) => toReminder(r as Record<string, unknown>));
+    }
+    throw error;
+  }
+  return (data ?? []).map((r) => toReminder(r as Record<string, unknown>));
 }
 
-export async function createReminder(text: string) {
-  const { error } = await supabase.from("reminders").insert({ text });
+export async function saveReminder(input: Omit<Reminder, "id" | "createdAt" | "doneAt">, id?: string) {
+  const row = {
+    text: input.text.trim(),
+    emoji: input.emoji || null,
+    due_date: input.dueDate || null,
+    due_time: input.dueTime || "09:00",
+    repeat: input.repeat,
+    alert: input.alert,
+    notes: input.notes?.trim() || null,
+  };
+  const { error } = id ? await supabase.from("reminders").update(row).eq("id", id) : await supabase.from("reminders").insert(row);
+  if (error) throw error;
+}
+
+/** Marca como feito. Se repete, avança para a próxima data e continua pendente. */
+export async function completeReminder(r: Reminder): Promise<string | undefined> {
+  const next = r.dueDate ? nextDue(r.dueDate, r.repeat) : undefined;
+  const { error } = next
+    ? await supabase.from("reminders").update({ due_date: next }).eq("id", r.id)
+    : await supabase.from("reminders").update({ done_at: new Date().toISOString() }).eq("id", r.id);
+  if (error) throw error;
+  return next;
+}
+
+export async function reopenReminder(id: string) {
+  const { error } = await supabase.from("reminders").update({ done_at: null }).eq("id", id);
   if (error) throw error;
 }
 
@@ -226,7 +277,7 @@ export async function fetchShoppingItems(listId?: string): Promise<ShoppingItem[
 export async function addShoppingItems(items: (string | NewItem)[], listId?: string) {
   const rows = items
     .map((i) => (typeof i === "string" ? { name: i } : i))
-    .map((i) => ({ name: i.name.trim(), quantity: i.quantity?.trim() || undefined }))
+    .map((i) => ({ name: i.name.trim(), quantity: onlyNumber(i.quantity) || undefined }))
     .filter((i) => i.name)
     .map((i) => ({
       name: i.name,
@@ -241,7 +292,7 @@ export async function addShoppingItems(items: (string | NewItem)[], listId?: str
 export async function updateShoppingItem(id: string, patch: { name?: string; quantity?: string }) {
   const row: Record<string, string | null> = {};
   if (patch.name !== undefined) row.name = patch.name.trim();
-  if (patch.quantity !== undefined) row.quantity = patch.quantity.trim() || null;
+  if (patch.quantity !== undefined) row.quantity = onlyNumber(patch.quantity) || null;
   const { error } = await supabase.from("shopping_items").update(row).eq("id", id);
   if (error) throw error;
 }

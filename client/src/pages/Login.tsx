@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
+import { validBirthDate } from "@/lib/calories";
 
 type Mode = "entrar" | "cadastrar";
 
@@ -21,6 +22,7 @@ export default function Login() {
   const [mode, setMode] = useState<Mode>("entrar");
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,12 +42,18 @@ export default function Login() {
         if (error) throw error;
       } else {
         if (!name.trim()) throw new Error("Informe seu nome.");
+        if (!validBirthDate(birthDate)) throw new Error("Informe sua data de nascimento.");
         if (!accepted) throw new Error("Para criar a conta, aceite a política de privacidade.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { name: name.trim(), nickname: nickname.trim() || undefined, privacy_accepted_at: new Date().toISOString() },
+            data: {
+              name: name.trim(),
+              nickname: nickname.trim() || undefined,
+              birth_date: birthDate,
+              privacy_accepted_at: new Date().toISOString(),
+            },
             emailRedirectTo: window.location.origin,
           },
         });
@@ -101,6 +109,21 @@ export default function Login() {
                 />
                 <p className="text-xs text-muted-foreground">É assim que o app vai te chamar nos avisos falados.</p>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="birth">Data de nascimento *</Label>
+                <Input
+                  id="birth"
+                  type="date"
+                  value={birthDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  min="1900-01-01"
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  autoComplete="bday"
+                  required
+                  data-testid="input-birth-date"
+                />
+                <p className="text-xs text-muted-foreground">Usada para estimar as calorias que você precisa por dia.</p>
+              </div>
             </>
           )}
 
@@ -153,7 +176,7 @@ export default function Login() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           {info && <p className="text-sm text-primary">{info}</p>}
 
-          <Button type="submit" className="w-full" disabled={loading || (mode === "cadastrar" && (!name.trim() || !accepted))}>
+          <Button type="submit" className="w-full" disabled={loading || (mode === "cadastrar" && (!name.trim() || !birthDate || !accepted))}>
             {loading ? "Aguarde..." : mode === "entrar" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
