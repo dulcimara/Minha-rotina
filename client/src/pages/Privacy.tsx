@@ -64,6 +64,14 @@ export default function Privacy() {
           </section>
 
           <section>
+            <h2>Versículo do dia</h2>
+            <p>
+              Se a opção estiver ligada, o app busca uma vez por dia um versículo de Provérbios no serviço gratuito bible-api.com.
+              Nenhum dado seu é enviado; o serviço vê apenas o pedido do versículo. Dá para desligar em Configurações.
+            </p>
+          </section>
+
+          <section>
             <h2>Onde ficam os dados</h2>
             <p>
               Os dados ficam no Supabase (banco de dados na nuvem), protegidos por regras que fazem cada conta enxergar apenas

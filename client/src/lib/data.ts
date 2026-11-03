@@ -674,6 +674,7 @@ const ALL_TABLES = [
   "medication_doses",
   "push_subscriptions",
   "watchlist",
+  "workouts",
 ];
 
 /** Junta todos os dados da pessoa num arquivo JSON (direito de acesso, LGPD art. 18). */
@@ -750,5 +751,60 @@ export async function saveWatchItem(input: Omit<WatchItem, "id">, id?: string) {
 
 export async function deleteWatchItem(id: string) {
   const { error } = await supabase.from("watchlist").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// =============================================================
+// Atividade física
+// =============================================================
+
+export interface Workout {
+  id: string;
+  activity: string;
+  day: string; // AAAA-MM-DD
+  minutes?: number;
+  distanceKm?: number;
+  notes?: string;
+}
+
+export async function fetchWorkouts(): Promise<Workout[]> {
+  const since = new Date();
+  since.setDate(since.getDate() - 400);
+  const { data, error } = await supabase
+    .from("workouts")
+    .select("*")
+    .gte("day", since.toISOString().slice(0, 10))
+    .order("day", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (error.code === "42P01") return []; // etapa 9 ainda não rodada
+    throw error;
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    activity: r.activity as string,
+    day: r.day as string,
+    minutes: (r.duration_min as number | null) ?? undefined,
+    distanceKm: r.distance_km == null ? undefined : Number(r.distance_km),
+    notes: (r.notes as string | null) ?? undefined,
+  }));
+}
+
+export async function saveWorkout(input: Omit<Workout, "id">, id?: string) {
+  const row = {
+    activity: input.activity.trim(),
+    day: input.day,
+    duration_min: input.minutes ?? null,
+    distance_km: input.distanceKm ?? null,
+    notes: input.notes?.trim() || null,
+  };
+  const { error } = id
+    ? await supabase.from("workouts").update(row).eq("id", id)
+    : await supabase.from("workouts").insert(row);
+  if (error) throw error;
+}
+
+export async function deleteWorkout(id: string) {
+  const { error } = await supabase.from("workouts").delete().eq("id", id);
   if (error) throw error;
 }

@@ -1,3 +1,4 @@
+import { AppIcon } from "@/components/AppIcons";
 import { useState } from "react";
 import { differenceInCalendarDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -83,9 +84,7 @@ export function CycleTab() {
   return (
     <div className="space-y-5">
       <Card className="p-5 text-center space-y-3 bg-hero border-0">
-        <div className="mx-auto h-14 w-14 rounded-2xl bg-mic text-white flex items-center justify-center shadow-md">
-          <Droplet className="h-7 w-7" />
-        </div>
+        <AppIcon name="ciclo" className="mx-auto h-14 w-14" />
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>

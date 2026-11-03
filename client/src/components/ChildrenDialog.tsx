@@ -1,3 +1,4 @@
+import { AppIcon } from "@/components/AppIcons";
 import { useState, type FormEvent } from "react";
 import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -252,7 +253,7 @@ export function ChildrenDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     >
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-children">
         <div className="flex items-center gap-3 rounded-2xl bg-hero p-4">
-          <ChildArt name="Família" />
+          <AppIcon name="filhos" className="h-14 w-14" />
           <div className="text-left">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Família</p>
             <DialogTitle className="text-lg font-display font-semibold">Meus filhos</DialogTitle>

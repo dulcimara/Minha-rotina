@@ -13,6 +13,8 @@ import { CycleTab } from "@/components/tabs/CycleTab";
 import { Baby, CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, Plus, Settings } from "lucide-react";
 import { ChildrenDialog } from "@/components/ChildrenDialog";
 import { Onboarding } from "@/components/Onboarding";
+import { VerseOfTheDay } from "@/components/VerseOfTheDay";
+import { readSettings } from "@/lib/settings";
 import { useAuth } from "@/hooks/use-auth";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -46,9 +48,14 @@ export default function Home() {
   const { data: activities = [], isLoading } = useActivities();
   const alerts = useAlerts();
 
-  const [tab, setTab] = useState<TabName>("hoje");
+  // Atalhos do ícone instalado (segurar o ícone): /?aba=compras, /?aba=agenda
+  const [tab, setTab] = useState<TabName>(() => {
+    const aba = new URLSearchParams(window.location.search).get("aba");
+    return aba === "agenda" || aba === "compras" || aba === "ciclo" ? aba : "hoje";
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { user } = useAuth();
+  const settings = readSettings(user);
   const onboarded = Boolean((user?.user_metadata as { onboarded_at?: string } | undefined)?.onboarded_at);
   const [childrenOpen, setChildrenOpen] = useState(false);
   /** lista aberta na aba Listas (vazio = lista de compras) */
@@ -165,6 +172,7 @@ export default function Home() {
       </header>
 
       <main className="container max-w-2xl mx-auto px-4 py-5 pb-32">
+        {settings.showVerse && <VerseOfTheDay />}
         {tab === "hoje" && (
           <TodayTab
             activities={activities}

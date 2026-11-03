@@ -14,12 +14,16 @@ import { ActivityCard } from "@/components/ActivityCard";
 import { EmptyState } from "@/components/EmptyState";
 import { CalendarX, Cake, Droplet, ShoppingCart, Sparkles, Volume2 } from "lucide-react";
 import { displayName, useAuth } from "@/hooks/use-auth";
-import { useBirthdays, useCycles, useDoses, useMedications, useShopping } from "@/hooks/use-data";
-import { MedsDialog, PillArt } from "@/components/MedsDialog";
+import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWorkouts } from "@/hooks/use-data";
+import { MedsDialog } from "@/components/MedsDialog";
+import { AppIcon, type AppIconName } from "@/components/AppIcons";
+import { WorkoutsDialog } from "@/components/WorkoutsDialog";
+import { thisWeekCount } from "@/lib/workouts";
 import { dosesOn } from "@/lib/meds";
 import type { Activity } from "@/lib/data";
 import { summarizeCycles } from "@/lib/cycle";
 import { BirthdaysDialog } from "@/components/BirthdaysDialog";
+import { InstallBanner } from "@/components/InstallApp";
 import { occurrencesBetween } from "@/lib/recurrence";
 import type { TabName } from "@/pages/Home";
 
@@ -83,10 +87,31 @@ async function sendCongrats(name: string) {
   }
 }
 
+/** Card de resumo da tela inicial, com o ícone da área. */
+function Tile({ icon, value, label, onClick, testId }: { icon: AppIconName; value: string; label: string; onClick: () => void; testId?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className="flex items-center gap-2.5 rounded-2xl border border-card-border bg-card p-2.5 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
+    >
+      <AppIcon name={icon} className="h-10 w-10" />
+      <span className="min-w-0">
+        <span className="block text-base font-semibold leading-tight">{value}</span>
+        <span className="block text-[11px] leading-tight text-muted-foreground">{label}</span>
+      </span>
+    </button>
+  );
+}
+
 export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers }: TodayTabProps) {
   const { user } = useAuth();
   const { data: shopping = [] } = useShopping();
   const { data: birthdays = [] } = useBirthdays();
+  const { data: workouts = [] } = useWorkouts();
+  const weekWorkouts = thisWeekCount(workouts);
+  const [workoutsOpen, setWorkoutsOpen] = useState(false);
   const { data: cycles = [] } = useCycles();
 
   const firstName = displayName(user);
@@ -151,36 +176,30 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
 
       {!firstName && <NameCard />}
 
-      <div className="grid grid-cols-3 gap-2" data-testid="summary-tiles">
-        <button
-          onClick={() => onNavigate("compras")}
-          className="rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
-        >
-          <ShoppingCart className="h-4 w-4 text-primary mb-1" />
-          <p className="text-lg font-semibold leading-none">{pendingShopping}</p>
-          <p className="text-[11px] text-muted-foreground">para comprar</p>
-        </button>
-        <button
+      <InstallBanner />
+
+      <div className="grid grid-cols-2 gap-2" data-testid="summary-tiles">
+        <Tile icon="listas" onClick={() => onNavigate("compras")} value={String(pendingShopping)} label="para comprar" />
+        <Tile
+          icon="aniversarios"
           onClick={() => setBirthdaysOpen(true)}
-          data-testid="button-open-birthdays"
-          className="rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
-        >
-          <Cake className="h-4 w-4 text-primary mb-1" />
-          <p className="text-lg font-semibold leading-none">{monthBirthdays}</p>
-          <p className="text-[11px] text-muted-foreground">aniversários no mês</p>
-        </button>
-        <button
+          testId="button-open-birthdays"
+          value={String(monthBirthdays)}
+          label="aniversários no mês"
+        />
+        <Tile
+          icon="ciclo"
           onClick={() => onNavigate("ciclo")}
-          className="rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
-        >
-          <Droplet className="h-4 w-4 text-primary mb-1" />
-          <p className="text-sm font-semibold leading-tight">
-            {!cycle.hasHistory ? "—" : cycle.active ? `${cycle.dayOfPeriod}º dia` : `${cycle.daysUntilNext} dias`}
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            {!cycle.hasHistory ? "ciclo" : cycle.active ? "menstruação" : "p/ próxima"}
-          </p>
-        </button>
+          value={!cycle.hasHistory ? "—" : cycle.active ? `${cycle.dayOfPeriod}º dia` : `${cycle.daysUntilNext} dias`}
+          label={!cycle.hasHistory ? "ciclo" : cycle.active ? "menstruação" : "p/ próxima"}
+        />
+        <Tile
+          icon="atividade"
+          onClick={() => setWorkoutsOpen(true)}
+          testId="button-open-workouts"
+          value={String(weekWorkouts)}
+          label={weekWorkouts === 1 ? "atividade na semana" : "atividades na semana"}
+        />
       </div>
 
       <section className="space-y-3">
@@ -189,9 +208,7 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
           const age = b.birthYear ? new Date().getFullYear() - b.birthYear : undefined;
           return (
             <Card key={b.id} className="p-4 flex items-center gap-3 bg-hero border-0" data-testid={`birthday-today-${b.id}`}>
-              <div className="h-11 w-11 shrink-0 rounded-2xl bg-mic text-white flex items-center justify-center">
-                <Cake className="h-5 w-5" />
-              </div>
+              <AppIcon name="aniversarios" className="h-11 w-11" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium">Hoje é aniversário de {b.name} 🎉</p>
                 <p className="text-xs text-muted-foreground">{age ? `Faz ${age} anos` : "Não esqueça de dar os parabéns!"}</p>
@@ -225,7 +242,7 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
         className="w-full flex items-center gap-3 rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
         data-testid="button-open-meds"
       >
-        <PillArt />
+        <AppIcon name="remedios" className="h-11 w-11" />
         <div className="flex-1 min-w-0">
           <p className="font-medium">Remédios de hoje</p>
           <p className="text-xs text-muted-foreground">
@@ -253,6 +270,7 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
       )}
       <BirthdaysDialog open={birthdaysOpen} onOpenChange={setBirthdaysOpen} />
       <MedsDialog open={medsOpen} onOpenChange={setMedsOpen} />
+      <WorkoutsDialog open={workoutsOpen} onOpenChange={setWorkoutsOpen} />
     </div>
   );
 }

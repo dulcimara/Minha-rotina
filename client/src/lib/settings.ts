@@ -22,6 +22,8 @@ export interface AccountSettings {
   showFertile: boolean;
   /** paleta de cores do app */
   palette: string;
+  /** versículo do dia (Provérbios) no topo do app */
+  showVerse: boolean;
 }
 
 export const DEFAULT_SETTINGS: AccountSettings = {
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: AccountSettings = {
   cycleAlert: false,
   showFertile: false,
   palette: "rosa",
+  showVerse: true,
 };
 
 // Nome de cada configuração dentro da conta (user_metadata)
@@ -45,6 +48,7 @@ const META: Record<keyof AccountSettings, string> = {
   cycleAlert: "cycle_alert",
   showFertile: "show_fertile",
   palette: "palette",
+  showVerse: "show_verse",
 };
 
 /** As configurações ficam na própria conta (valem em todos os aparelhos). */

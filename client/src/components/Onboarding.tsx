@@ -9,21 +9,7 @@ import { enablePush, pushHelp, type PushState } from "@/lib/push";
 import { PalettePicker } from "@/components/PalettePicker";
 import { VOICE_EXAMPLES } from "@/lib/voice-parser";
 import { cn } from "@/lib/utils";
-
-type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
-
-// O Chrome avisa quando o app pode ser instalado; guardamos o evento para o botão "Instalar".
-let deferredInstall: InstallPrompt | null = null;
-if (typeof window !== "undefined") {
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredInstall = e as InstallPrompt;
-  });
-}
-
-const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
-const isInstalled = () =>
-  window.matchMedia?.("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+import { InstallContent } from "@/components/InstallApp";
 
 const STEPS = [
   { icon: PaletteIcon, title: "Escolha as suas cores" },
@@ -40,7 +26,6 @@ export function Onboarding() {
   const [step, setStep] = useState(0);
   const [palette, setPalette] = useState(readSettings(user).palette);
   const [push, setPush] = useState<PushState | null>(null);
-  const [installed, setInstalled] = useState(false);
 
   useEffect(() => setOpen(!done), [done]);
 
@@ -130,40 +115,8 @@ export function Onboarding() {
 
         {step === 3 && (
           <div className="space-y-3 text-sm">
-            {isInstalled() || installed ? (
-              <p className="flex items-center gap-2 rounded-xl bg-secondary/60 p-3 font-medium">
-                <Check className="h-4 w-4 text-primary" /> O app já está instalado. 🎉
-              </p>
-            ) : isIOS() ? (
-              <ol className="space-y-2 list-decimal pl-5">
-                <li>Abra este endereço no <strong>Safari</strong>.</li>
-                <li>
-                  Toque em <Share className="inline h-4 w-4" /> <strong>Compartilhar</strong>.
-                </li>
-                <li>
-                  Escolha <strong>Adicionar à Tela de Início</strong>.
-                </li>
-              </ol>
-            ) : deferredInstall ? (
-              <Button
-                className="w-full gap-2"
-                onClick={async () => {
-                  await deferredInstall?.prompt();
-                  const choice = await deferredInstall?.userChoice;
-                  if (choice?.outcome === "accepted") setInstalled(true);
-                }}
-              >
-                <Download className="h-4 w-4" /> Instalar o app
-              </Button>
-            ) : (
-              <ol className="space-y-2 list-decimal pl-5">
-                <li>No Chrome, toque no menu <strong>⋮</strong> (canto de cima).</li>
-                <li>
-                  Escolha <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>.
-                </li>
-              </ol>
-            )}
-            <p className="text-xs text-muted-foreground">Instalado, ele abre como um app normal, com ícone próprio e em tela cheia.</p>
+            <p>Instalado, o Minha Rotina fica na tela do celular como os outros apps: abre em tela cheia e avisa na hora certa.</p>
+            <InstallContent />
           </div>
         )}
 
