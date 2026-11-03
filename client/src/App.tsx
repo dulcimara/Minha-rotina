@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
+import { AppLock } from "@/components/AppLock";
 import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -49,7 +50,13 @@ function Gate() {
     );
   }
 
-  return session ? <Router /> : <Login />;
+  return session ? (
+    <AppLock>
+      <Router />
+    </AppLock>
+  ) : (
+    <Login />
+  );
 }
 
 function App() {
