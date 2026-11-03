@@ -65,6 +65,14 @@ export default function Privacy() {
           </section>
 
           <section>
+            <h2>Trava com Face ID, digital ou PIN</h2>
+            <p>
+              Se você ligar a trava, quem confere o seu rosto, digital ou PIN é o próprio celular. O app recebe só a resposta
+              "confirmado" ou "não confirmado" e não vê nem guarda nenhum dado biométrico.
+            </p>
+          </section>
+
+          <section>
             <h2>Versículo do dia</h2>
             <p>
               Se a opção estiver ligada, o app busca uma vez por dia um versículo de Provérbios no serviço gratuito bible-api.com.

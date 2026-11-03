@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   BookOpen,
+  ShieldCheck,
   Users,
   Flame,
   BellRing,
@@ -39,6 +40,7 @@ import { PalettePicker } from "@/components/PalettePicker";
 import { InstallDialog } from "@/components/InstallApp";
 import { BodyProfileForm } from "@/components/BodyProfileForm";
 import { SharingSettings } from "@/components/SharingSettings";
+import { LockSettings } from "@/components/LockSettings";
 import { useInstall } from "@/lib/install";
 import { cn } from "@/lib/utils";
 
@@ -182,6 +184,10 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               Salvar nome
             </Button>
           )}
+        </Section>
+
+        <Section icon={ShieldCheck} title="Segurança">
+          <LockSettings />
         </Section>
 
         <Section icon={Users} title="Compartilhamento">
