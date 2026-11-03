@@ -42,7 +42,7 @@ export function Onboarding() {
       try {
         await savePicks(picks);
         refresh(userId, "reminders");
-        toast({ title: `${Object.keys(picks).length} ${Object.keys(picks).length === 1 ? "lembrete criado" : "lembretes criados"} 🔔` });
+        toast({ title: `${Object.keys(picks).length} ${Object.keys(picks).length === 1 ? "lembrete criado" : "lembretes criados"}` });
         setPicks({});
       } catch (err) {
         toast({ title: "Não foi possível criar os lembretes", description: (err as Error).message, variant: "destructive" });

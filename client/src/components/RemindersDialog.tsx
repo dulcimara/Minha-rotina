@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/NativeSelect";
 import { ArrowLeft, Check, Pencil, Plus, Repeat as RepeatIcon, RotateCcw, Trash2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcons";
+import { ReminderGlyph } from "@/components/ReminderGlyph";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useReminders, useUserId } from "@/hooks/use-data";
 import { completeReminder, deleteReminder, reopenReminder, saveReminder, type Reminder } from "@/lib/data";
@@ -69,7 +70,7 @@ function ReminderForm({ initial, onDone }: { initial?: Reminder; onDone: () => v
     try {
       await saveReminder({ text, emoji, dueDate, dueTime, repeat, alert, notes }, initial?.id);
       refresh(userId, "reminders");
-      toast({ title: initial ? "Lembrete atualizado" : `${emoji ?? "🔔"} Lembrete criado` });
+      toast({ title: initial ? "Lembrete atualizado" : `${emoji ? `${emoji} ` : ""}Lembrete criado` });
       onDone();
     } catch (err) {
       toast({ title: "Não foi possível salvar", description: (err as Error).message, variant: "destructive" });
@@ -182,7 +183,7 @@ function Row({ r, onEdit }: { r: Reminder; onEdit: () => void }) {
       >
         {done ? <RotateCcw className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5 text-primary/60" />}
       </button>
-      <span className="text-xl leading-none w-7 text-center">{r.emoji ?? "🔔"}</span>
+      <ReminderGlyph emoji={r.emoji} />
       <div className="flex-1 min-w-0">
         <p className={cn("text-sm font-medium truncate", done && "line-through text-muted-foreground")}>{r.text}</p>
         <p className={cn("text-xs truncate", late && !done ? "text-destructive font-medium" : "text-muted-foreground")}>
