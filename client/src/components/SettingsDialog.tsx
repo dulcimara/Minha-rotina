@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   BookOpen,
+  Flame,
   BellRing,
   Check,
   Download,
@@ -35,6 +36,7 @@ import { morningSummary } from "@/lib/morning";
 import { speak } from "@/lib/speech";
 import { PalettePicker } from "@/components/PalettePicker";
 import { InstallDialog } from "@/components/InstallApp";
+import { BodyProfileForm } from "@/components/BodyProfileForm";
 import { useInstall } from "@/lib/install";
 import { cn } from "@/lib/utils";
 
@@ -177,6 +179,10 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               Salvar nome
             </Button>
           )}
+        </Section>
+
+        <Section icon={Flame} title="Saúde e calorias">
+          <BodyProfileForm />
         </Section>
 
         <Section icon={PaletteIcon} title="Cores do app">

@@ -154,6 +154,7 @@ interface UserData {
   doses: any[];
   cycles: any[];
   children: any[];
+  reminders: any[];
 }
 
 const inWindow = (at: Date, now: Date) => at.getTime() <= now.getTime() && now.getTime() - at.getTime() < WINDOW_MS;
@@ -250,6 +251,20 @@ export function dueFor(u: UserData, now: Date): Due[] {
     }
   }
 
+  // Lembretes, na data e hora escolhidas
+  for (const r of u.reminders ?? []) {
+    if (r.done_at || r.alert === false || r.due_date !== todayKey) continue;
+    const [h, mi] = String(r.due_time ?? "09:00").split(":").map(Number);
+    const at = zoned(today.y, today.m, today.d, h, mi, tz);
+    if (!inWindow(at, now)) continue;
+    due.push({
+      key: `rem:${r.id}:${r.due_date}`,
+      at,
+      title: `${r.emoji ?? "🔔"} ${r.text}`,
+      body: `${name ? `${name}, l` : "L"}embrete: ${r.text}.${r.notes ? ` ${r.notes}` : ""}`,
+    });
+  }
+
   // Resumo da manhã, no horário escolhido
   const meta = u.meta as { morning_summary?: boolean; morning_time?: string; cycle_alert?: boolean };
   if (meta.morning_summary) {
@@ -333,12 +348,13 @@ async function run(now = new Date()) {
     }
     return data ?? [];
   };
-  const [activities, birthdays, medications, cycles, children] = await Promise.all([
+  const [activities, birthdays, medications, cycles, children, reminders] = await Promise.all([
     load("activities", (q) => q.eq("reminder_enabled", true)),
     load("birthdays"),
     load("medications"),
     load("menstrual_cycles", (q) => q.order("start_date", { ascending: false })),
     load("children"),
+    load("reminders", (q) => q.is("done_at", null)),
   ]);
   const since = new Date(now.getTime() - 2 * 86_400_000).toISOString().slice(0, 10);
   const doses = await load("medication_doses", (q) => q.gte("day", since));
@@ -362,6 +378,7 @@ async function run(now = new Date()) {
         doses: mine(doses),
         cycles: mine(cycles),
         children: mine(children),
+        reminders: mine(reminders),
       },
       now,
     );

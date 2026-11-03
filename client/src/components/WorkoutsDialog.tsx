@@ -1,11 +1,11 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Flame, Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
 import { AppIcon } from "@/components/AppIcons";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useUserId, useWorkouts } from "@/hooks/use-data";
@@ -21,6 +21,9 @@ import {
   type WeekBar,
 } from "@/lib/workouts";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { BodyProfileForm } from "@/components/BodyProfileForm";
+import { DEFAULT_WEIGHT, activityLevel, ageFrom, burned, dailyNeed, kcal, levelLabel, readProfile } from "@/lib/calories";
 
 const GOAL = 150; // minutos por semana recomendados pela OMS para adultos
 
@@ -45,7 +48,7 @@ function WeeklyChart({ weeks }: { weeks: WeekBar[] }) {
         <line x1="0" x2={W} y1={top + plotH} y2={top + plotH} className="stroke-border" strokeWidth="1" />
         {/* recomendação da OMS */}
         <line x1="0" x2={W} y1={y(GOAL)} y2={y(GOAL)} className="stroke-muted-foreground/60" strokeWidth="1" strokeDasharray="4 4" />
-        <text x={W} y={y(GOAL) - 4} textAnchor="end" className="fill-muted-foreground text-[9px]">
+        <text x={2} y={y(GOAL) - 4} textAnchor="start" className="fill-muted-foreground text-[9px]" paintOrder="stroke" stroke="hsl(var(--background))" strokeWidth="3">
           meta 150 min
         </text>
         {weeks.map((w, i) => {
@@ -89,6 +92,76 @@ function WeeklyChart({ weeks }: { weeks: WeekBar[] }) {
         </span>
       </figcaption>
     </figure>
+  );
+}
+
+/** Calorias: gasto estimado nos exercícios e necessidade diária pela idade. */
+function CaloriesCard({ all, recentBurn, weekBurn }: { all: Workout[]; recentBurn: number; weekBurn: number }) {
+  const { user } = useAuth();
+  const profile = readProfile(user);
+  const age = ageFrom(profile.birthDate);
+  const { level, weeklyMinutes } = activityLevel(all);
+  const need = age != null && profile.sex ? dailyNeed(age, profile.sex, level) : undefined;
+  const missing = age == null || !profile.sex || !profile.weightKg;
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <section className="space-y-3 rounded-2xl border p-3.5" data-testid="calories-card">
+      <h3 className="text-sm font-semibold flex items-center gap-1.5">
+        <Flame className="h-4 w-4 text-primary" /> Calorias (estimativa)
+      </h3>
+      <div className="grid grid-cols-2 gap-2 text-center">
+        <div className="rounded-xl bg-muted/60 p-2.5">
+          <p className="text-lg font-semibold leading-none">{kcal(weekBurn)}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">gastas esta semana</p>
+        </div>
+        <div className="rounded-xl bg-muted/60 p-2.5">
+          <p className="text-lg font-semibold leading-none">{kcal(recentBurn)}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">nos últimos 3 meses</p>
+        </div>
+      </div>
+
+      {need ? (
+        <div className="flex items-start gap-2.5 rounded-xl bg-secondary/60 p-3">
+          <UtensilsCrossed className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <div className="text-sm">
+            <p>
+              Para você, cerca de <strong>{kcal(need)} por dia</strong>.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {age} anos, {levelLabel(level, profile.sex)} ({weeklyMinutes} min de exercício por semana, em média, nas últimas 4 semanas).
+            </p>
+          </div>
+        </div>
+      ) : age != null && age < 19 ? (
+        <p className="text-xs text-muted-foreground">A estimativa de consumo diário é para adultos (a partir de 19 anos).</p>
+      ) : null}
+
+      {missing && !editing ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {!profile.weightKg && `As calorias gastas usam um peso médio de ${DEFAULT_WEIGHT} kg. `}
+            Informe {[age == null && "a data de nascimento", !profile.sex && "o sexo", !profile.weightKg && "o peso"].filter(Boolean).join(", ")} para
+            estimativas mais certas.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)} data-testid="button-calories-profile">
+            Informar agora
+          </Button>
+        </div>
+      ) : editing ? (
+        <div className="space-y-2">
+          <BodyProfileForm compact />
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+            Pronto
+          </Button>
+        </div>
+      ) : null}
+
+      <p className="text-[11px] text-muted-foreground">
+        Estimativas gerais (Compendium of Physical Activities e Diretrizes Alimentares dos EUA 2020–2025). Não substituem a
+        orientação de nutricionista ou médico.
+      </p>
+    </section>
   );
 }
 
@@ -234,6 +307,11 @@ export function WorkoutsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const bySport = useMemo(() => totalsBySport(recent), [recent]);
   const totalMin = recent.reduce((s, w) => s + (w.minutes ?? 0), 0);
   const totalKm = recent.reduce((s, w) => s + (w.distanceKm ?? 0), 0);
+  const { user } = useAuth();
+  const weight = readProfile(user).weightKg ?? DEFAULT_WEIGHT;
+  const recentBurn = recent.reduce((s, w) => s + (burned(w, weight) ?? 0), 0);
+  const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const weekBurn = recent.filter((w) => w.day >= weekStart).reduce((s, w) => s + (burned(w, weight) ?? 0), 0);
   const maxSport = Math.max(1, ...bySport.map((s) => s.minutes || s.count));
 
   const close = (o: boolean) => {
@@ -295,6 +373,8 @@ export function WorkoutsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                   <p className="text-[11px] text-muted-foreground">A OMS recomenda ao menos 150 minutos por semana de atividade moderada.</p>
                 </section>
 
+                <CaloriesCard all={all} recentBurn={recentBurn} weekBurn={weekBurn} />
+
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">O que você mais fez</h3>
                   <ul className="space-y-2">
@@ -329,6 +409,7 @@ export function WorkoutsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                                 format(new Date(w.day + "T12:00"), "EEE, d MMM", { locale: ptBR }),
                                 w.minutes && formatMinutes(w.minutes),
                                 w.distanceKm != null && formatDistance(w.distanceKm, sp.distance),
+                                burned(w, weight) != null && `~${kcal(burned(w, weight)!)}`,
                                 w.notes,
                               ]
                                 .filter(Boolean)

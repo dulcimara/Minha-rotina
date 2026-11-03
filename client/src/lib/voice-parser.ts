@@ -532,9 +532,10 @@ export function splitQuantity(text: string): { name: string; quantity?: string }
   const t = text.trim();
   const m = t.match(new RegExp(`^(\\d+(?:[.,]\\d+)?|meio|meia|uma?|duas?|dois|tr[êe]s)\\s*(${UNIT})?\\s+(?:de\\s+)?(.+)$`, "i"));
   if (!m || (!m[2] && !/^\d/.test(m[1]))) return { name: capitalize(t) };
-  const n = wordToNumber(m[1].toLowerCase()) ?? (/^mei[oa]$/i.test(m[1]) ? "1/2" : m[1]);
-  const quantity = [String(n), m[2]?.toLowerCase()].filter(Boolean).join(" ");
-  return { name: capitalize(m[3]), quantity };
+  const n = wordToNumber(m[1].toLowerCase()) ?? (/^mei[oa]$/i.test(m[1]) ? "0,5" : m[1]);
+  // A quantidade é só o número; a unidade falada (kg, pacote...) vai junto do nome: "Arroz (kg)".
+  const unit = m[2]?.toLowerCase();
+  return { name: capitalize(m[3]) + (unit ? ` (${unit})` : ""), quantity: String(n).replace(".", ",") };
 }
 
 /** Trata a frase inteira como itens de compra (usado quando o microfone é aberto na aba Compras). */

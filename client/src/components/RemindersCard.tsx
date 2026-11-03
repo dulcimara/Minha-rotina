@@ -1,0 +1,73 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Check, ChevronRight, Plus } from "lucide-react";
+import { AppIcon } from "@/components/AppIcons";
+import { RemindersDialog, byDue, dueLabel, useCompleteReminder } from "@/components/RemindersDialog";
+import { useReminders } from "@/hooks/use-data";
+import { dueState } from "@/lib/lembretes";
+import { cn } from "@/lib/utils";
+
+/** Card da tela inicial: os próximos lembretes, com o "feito" a um toque. */
+export function RemindersCard() {
+  const { data: all = [] } = useReminders();
+  const complete = useCompleteReminder();
+  const [dialog, setDialog] = useState<{ open: boolean; key: number; startNew: boolean }>({ open: false, key: 0, startNew: false });
+  const open = (startNew: boolean) => setDialog((d) => ({ open: true, key: d.key + 1, startNew }));
+
+  const pending = all.filter((r) => !r.doneAt).sort(byDue);
+  const late = pending.filter((r) => dueState(r.dueDate) === "atrasado").length;
+  const top = pending.slice(0, 3);
+
+  return (
+    <section className="rounded-2xl border border-card-border bg-card p-3.5 shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)]" data-testid="reminders-card">
+      <div className="flex items-center gap-3">
+        <AppIcon name="lembretes" className="h-11 w-11" />
+        <button type="button" className="flex-1 min-w-0 text-left" onClick={() => open(false)} data-testid="button-open-reminders">
+          <p className="font-semibold leading-tight">Lembretes</p>
+          <p className={cn("text-xs", late ? "text-destructive font-medium" : "text-muted-foreground")}>
+            {pending.length === 0
+              ? "Nada pendente"
+              : late
+                ? `${late} ${late === 1 ? "atrasado" : "atrasados"} · ${pending.length} no total`
+                : `${pending.length} ${pending.length === 1 ? "pendente" : "pendentes"}`}
+          </p>
+        </button>
+        <Button size="sm" variant="outline" className="gap-1 shrink-0" onClick={() => open(true)} data-testid="button-reminder-new">
+          <Plus className="h-4 w-4" /> Novo
+        </Button>
+      </div>
+
+      {top.length > 0 && (
+        <ul className="mt-2 divide-y">
+          {top.map((r) => {
+            const isLate = dueState(r.dueDate) === "atrasado";
+            return (
+              <li key={r.id} className="flex items-center gap-2.5 py-2">
+                <button
+                  type="button"
+                  onClick={() => complete(r)}
+                  className="h-6 w-6 shrink-0 rounded-full border-2 border-primary/50 flex items-center justify-center hover:bg-primary/10"
+                  aria-label={`Marcar "${r.text}" como feito`}
+                >
+                  <Check className="h-3 w-3 text-primary/60" />
+                </button>
+                <span className="text-lg leading-none">{r.emoji ?? "🔔"}</span>
+                <span className="flex-1 min-w-0 text-sm truncate">{r.text}</span>
+                <span className={cn("shrink-0 text-[11px]", isLate ? "text-destructive font-medium" : "text-muted-foreground")}>
+                  {dueLabel(r).replace(/^atrasado · era /, "atrasado · ")}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {pending.length > 3 && (
+        <button type="button" onClick={() => open(false)} className="mt-1 flex w-full items-center justify-center gap-1 text-xs font-medium text-primary">
+          Ver todos ({pending.length}) <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      )}
+
+      <RemindersDialog key={dialog.key} open={dialog.open} startNew={dialog.startNew} onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} />
+    </section>
+  );
+}

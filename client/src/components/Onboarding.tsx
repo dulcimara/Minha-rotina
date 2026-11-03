@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { BellRing, Check, Download, Mic, Palette as PaletteIcon, Share, Smartphone } from "lucide-react";
+import { BellPlus, BellRing, Check, Download, Mic, Palette as PaletteIcon, Share, Smartphone } from "lucide-react";
 import { displayName, useAuth } from "@/hooks/use-auth";
 import { readSettings, saveSettings } from "@/lib/settings";
 import { supabase } from "@/lib/supabase";
@@ -9,16 +9,20 @@ import { enablePush, pushHelp, type PushState } from "@/lib/push";
 import { PalettePicker } from "@/components/PalettePicker";
 import { VOICE_EXAMPLES } from "@/lib/voice-parser";
 import { cn } from "@/lib/utils";
+import { OnboardingReminders, savePicks, type ReminderPicks } from "@/components/OnboardingReminders";
+import { refresh, useUserId } from "@/hooks/use-data";
+import { useToast } from "@/hooks/use-toast";
 import { InstallContent } from "@/components/InstallApp";
 
 const STEPS = [
   { icon: PaletteIcon, title: "Escolha as suas cores" },
+  { icon: BellPlus, title: "Seus lembretes" },
   { icon: Mic, title: "Fale com o app" },
   { icon: BellRing, title: "Avisos na hora certa" },
   { icon: Smartphone, title: "Instale no celular" },
 ];
 
-/** Boas-vindas em 4 passos, mostradas uma vez por conta. */
+/** Boas-vindas em 5 passos, mostradas uma vez por conta. */
 export function Onboarding() {
   const { user } = useAuth();
   const done = Boolean((user?.user_metadata as { onboarded_at?: string } | undefined)?.onboarded_at);
@@ -26,6 +30,29 @@ export function Onboarding() {
   const [step, setStep] = useState(0);
   const [palette, setPalette] = useState(readSettings(user).palette);
   const [push, setPush] = useState<PushState | null>(null);
+  const [picks, setPicks] = useState<ReminderPicks>({});
+  const [savingPicks, setSavingPicks] = useState(false);
+  const userId = useUserId();
+  const { toast } = useToast();
+
+  /** Ao sair do passo dos lembretes, cria os escolhidos (uma vez só). */
+  const next = async () => {
+    if (step === 1 && Object.keys(picks).length) {
+      setSavingPicks(true);
+      try {
+        await savePicks(picks);
+        refresh(userId, "reminders");
+        toast({ title: `${Object.keys(picks).length} ${Object.keys(picks).length === 1 ? "lembrete criado" : "lembretes criados"} 🔔` });
+        setPicks({});
+      } catch (err) {
+        toast({ title: "Não foi possível criar os lembretes", description: (err as Error).message, variant: "destructive" });
+        setSavingPicks(false);
+        return;
+      }
+      setSavingPicks(false);
+    }
+    setStep(step + 1);
+  };
 
   useEffect(() => setOpen(!done), [done]);
 
@@ -69,7 +96,9 @@ export function Onboarding() {
           </div>
         )}
 
-        {step === 1 && (
+        {step === 1 && <OnboardingReminders picks={picks} onChange={setPicks} />}
+
+        {step === 2 && (
           <div className="space-y-3 text-sm">
             <p>
               Toque no <strong>microfone rosa</strong> no meio da barra de baixo e fale tudo de uma vez. Eu mostro o que entendi para
@@ -84,7 +113,7 @@ export function Onboarding() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="space-y-3 text-sm">
             <p>
               Eu aviso dos compromissos, remédios e aniversários com som e falando o seu nome. Para os avisos chegarem mesmo com
@@ -113,7 +142,7 @@ export function Onboarding() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="space-y-3 text-sm">
             <p>Instalado, o Minha Rotina fica na tela do celular como os outros apps: abre em tela cheia e avisa na hora certa.</p>
             <InstallContent />
@@ -124,7 +153,7 @@ export function Onboarding() {
           <Button variant="ghost" onClick={step === 0 ? finish : () => setStep(step - 1)}>
             {step === 0 ? "Pular" : "Voltar"}
           </Button>
-          <Button onClick={last ? finish : () => setStep(step + 1)} data-testid="button-onboarding-next">
+          <Button onClick={last ? finish : next} disabled={savingPicks} data-testid="button-onboarding-next">
             {last ? "Começar" : "Continuar"}
           </Button>
         </div>

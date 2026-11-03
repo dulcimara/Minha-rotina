@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useActivities, useBirthdays, useChildren, useDoses, useMedications } from "@/hooks/use-data";
+import { useActivities, useBirthdays, useChildren, useDoses, useMedications, useReminders } from "@/hooks/use-data";
 import { dosesOn } from "@/lib/meds";
 import { displayName, useAuth } from "@/hooks/use-auth";
 import { readSettings, type AlertMode } from "@/lib/settings";
@@ -112,6 +112,7 @@ export function useAlerts() {
   const { data: meds = [] } = useMedications();
   const { data: dosesTaken = [] } = useDoses();
   const { data: children = [] } = useChildren();
+  const { data: reminders = [] } = useReminders();
   const { user } = useAuth();
   const name = displayName(user);
   const settings = readSettings(user);
@@ -163,6 +164,22 @@ export function useAlerts() {
       });
     }
 
+    // Lembretes: na data e hora escolhidas
+    for (const r of reminders) {
+      if (r.doneAt || !r.alert || !r.dueDate) continue;
+      const at = new Date(`${r.dueDate}T${r.dueTime || "09:00"}:00`);
+      const diff = now.getTime() - at.getTime();
+      if (Number.isNaN(diff) || diff < 0 || diff > LATE_TOLERANCE_MS) continue;
+      const key = `rem:${r.id}:${r.dueDate}`;
+      if (fired.current.has(key)) continue;
+      due.push({
+        key,
+        title: `${r.emoji ?? "🔔"} ${r.text}`,
+        subtitle: `Lembrete · ${r.dueTime || "09:00"}${r.notes ? ` · ${r.notes}` : ""}`,
+        spoken: `${name ? `${name}, l` : "L"}embrete: ${r.text}.${r.notes ? ` ${r.notes}.` : ""}`,
+      });
+    }
+
     for (const b of birthdays) {
       const item = birthdayAlert(b, now, name);
       if (item && !fired.current.has(item.key)) due.push(item);
@@ -176,7 +193,7 @@ export function useAlerts() {
       saveFired(fired.current);
       due.forEach(trigger);
     }
-  }, [activities, birthdays, meds, dosesTaken, children, trigger, name]);
+  }, [activities, birthdays, meds, dosesTaken, children, reminders, trigger, name]);
 
   useEffect(() => {
     check();
