@@ -7,6 +7,7 @@ import { playChime, vibrate } from "@/lib/alarm-sound";
 import { speak } from "@/lib/speech";
 import { nextBirthdayDate, type Activity, type Birthday } from "@/lib/data";
 import { alertSentence } from "@/lib/alert-text";
+import { occurrencesBetween } from "@/lib/recurrence";
 
 /**
  * Confere a cada 15 segundos se chegou a hora de algum aviso.
@@ -123,7 +124,10 @@ export function useAlerts() {
     const now = new Date();
     const due: AlertItem[] = [];
 
-    for (const a of activities) {
+    // Inclui as repetições de hoje (e de ontem/amanhã, por causa dos avisos com antecedência).
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    for (const a of occurrencesBetween(activities, yesterday, tomorrow)) {
       const item = activityAlert(a, now, name);
       if (item && !fired.current.has(item.key)) due.push(item);
     }

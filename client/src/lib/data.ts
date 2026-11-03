@@ -1,6 +1,9 @@
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 
+/** Data sem hora no formato do banco: "AAAA-MM-DD". */
+const toDay = (d: Date) => format(d, "yyyy-MM-dd");
+
 // =============================================================
 // Atividades e compromissos
 // =============================================================
@@ -22,9 +25,13 @@ export interface Activity {
   reminderMinutesBefore?: number;
   reminderVoiceText?: string;
   reminderVoiceGender?: "male" | "female";
+  /** dias da semana em que repete (0 = domingo ... 6 = sábado); vazio = não repete */
+  repeatDays?: number[];
+  /** dias (AAAA-MM-DD) em que uma atividade recorrente foi marcada como feita */
+  completedDates?: string[];
 }
 
-export type ActivityInput = Omit<Activity, "id" | "completed">;
+export type ActivityInput = Omit<Activity, "id" | "completed" | "completedDates">;
 
 interface ActivityRow {
   id: string;
@@ -39,6 +46,8 @@ interface ActivityRow {
   reminder_type: "text" | "voice";
   reminder_date_time: string | null;
   reminder_minutes_before: number | null;
+  repeat_days?: number[] | null;
+  completed_dates?: string[] | null;
   reminder_voice_text: string | null;
   reminder_voice_gender: "male" | "female" | null;
 }
@@ -57,6 +66,8 @@ function fromRow(row: ActivityRow): Activity {
     reminderType: row.reminder_type,
     reminderDateTime: row.reminder_date_time ? new Date(row.reminder_date_time) : undefined,
     reminderMinutesBefore: row.reminder_minutes_before ?? undefined,
+    repeatDays: row.repeat_days?.length ? row.repeat_days : undefined,
+    completedDates: row.completed_dates ?? [],
     reminderVoiceText: row.reminder_voice_text ?? undefined,
     reminderVoiceGender: row.reminder_voice_gender ?? undefined,
   };
@@ -84,6 +95,8 @@ function toRow(input: ActivityInput) {
     reminder_type: input.reminderType,
     reminder_date_time: reminderAt ? reminderAt.toISOString() : null,
     reminder_minutes_before: input.reminderEnabled ? minutes : null,
+    // Só envia quando o formulário informou (evita erro se a coluna ainda não existir).
+    ...(input.repeatDays !== undefined ? { repeat_days: input.repeatDays.length ? input.repeatDays : null } : {}),
     reminder_voice_text:
       input.reminderEnabled && input.reminderType === "voice" ? input.reminderVoiceText || null : null,
     reminder_voice_gender:
@@ -114,6 +127,13 @@ export async function updateActivity(id: string, input: ActivityInput) {
 
 export async function setActivityCompleted(id: string, completed: boolean) {
   const { error } = await supabase.from("activities").update({ completed }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Marca/desmarca um dia de uma atividade recorrente como feito. */
+export async function setOccurrenceCompleted(id: string, day: string, completed: boolean, current: string[]) {
+  const next = completed ? Array.from(new Set([...current, day])) : current.filter((d) => d !== day);
+  const { error } = await supabase.from("activities").update({ completed_dates: next }).eq("id", id);
   if (error) throw error;
 }
 
@@ -157,29 +177,67 @@ export async function deleteReminder(id: string) {
 }
 
 // =============================================================
-// Lista de compras
+// Listas: a lista de compras (sem list_id) e as listas personalizadas
 // =============================================================
 
 export interface ShoppingItem {
   id: string;
   name: string;
   checked: boolean;
+  quantity?: string;
+  listId?: string;
 }
 
-export async function fetchShoppingItems(): Promise<ShoppingItem[]> {
-  const { data, error } = await supabase
-    .from("shopping_items")
-    .select("id, name, checked")
-    .order("checked", { ascending: true })
-    .order("created_at", { ascending: true });
+export interface CustomList {
+  id: string;
+  name: string;
+  temporary: boolean;
+}
+
+export interface NewItem {
+  name: string;
+  quantity?: string;
+}
+
+/** Itens de uma lista. Sem listId = lista de compras. */
+export async function fetchShoppingItems(listId?: string): Promise<ShoppingItem[]> {
+  let query = supabase.from("shopping_items").select("*");
+  query = listId ? query.eq("list_id", listId) : query.is("list_id", null);
+  let { data, error } = await query.order("checked", { ascending: true }).order("created_at", { ascending: true });
+  // Antes de rodar o SQL da etapa 5 a coluna list_id não existe: mostra a lista mesmo assim.
+  if (error && !listId && error.code === "42703") {
+    ({ data, error } = await supabase.from("shopping_items").select("*").order("checked").order("created_at"));
+  }
   if (error) throw error;
-  return (data ?? []) as ShoppingItem[];
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    checked: r.checked as boolean,
+    quantity: (r.quantity as string | null) ?? undefined,
+    listId: (r.list_id as string | null) ?? undefined,
+  }));
 }
 
-export async function addShoppingItems(names: string[]) {
-  const rows = names.map((n) => n.trim()).filter(Boolean).map((name) => ({ name }));
+export async function addShoppingItems(items: (string | NewItem)[], listId?: string) {
+  const rows = items
+    .map((i) => (typeof i === "string" ? { name: i } : i))
+    .map((i) => ({ name: i.name.trim(), quantity: i.quantity?.trim() || undefined }))
+    .filter((i) => i.name)
+    .map((i) => ({
+      name: i.name,
+      ...(i.quantity ? { quantity: i.quantity } : {}),
+      ...(listId ? { list_id: listId } : {}),
+    }));
   if (rows.length === 0) return;
   const { error } = await supabase.from("shopping_items").insert(rows);
+  if (error) throw error;
+}
+
+export async function updateShoppingItem(id: string, patch: { name?: string; quantity?: string }) {
+  const row: Record<string, string | null> = {};
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.quantity !== undefined) row.quantity = patch.quantity.trim() || null;
+  const { error } = await supabase.from("shopping_items").update(row).eq("id", id);
   if (error) throw error;
 }
 
@@ -188,14 +246,94 @@ export async function setShoppingItemChecked(id: string, checked: boolean) {
   if (error) throw error;
 }
 
+/** Marca (ou desmarca) todos os itens de uma lista. */
+export async function setAllItemsChecked(checked: boolean, listId?: string) {
+  let q = supabase.from("shopping_items").update({ checked });
+  q = listId ? q.eq("list_id", listId) : q.is("list_id", null);
+  const { error } = await q;
+  if (error) throw error;
+}
+
 export async function deleteShoppingItem(id: string) {
   const { error } = await supabase.from("shopping_items").delete().eq("id", id);
   if (error) throw error;
 }
 
-export async function clearCheckedShoppingItems() {
-  const { error } = await supabase.from("shopping_items").delete().eq("checked", true);
+export async function clearCheckedShoppingItems(listId?: string) {
+  let q = supabase.from("shopping_items").delete().eq("checked", true);
+  q = listId ? q.eq("list_id", listId) : q.is("list_id", null);
+  const { error } = await q;
   if (error) throw error;
+}
+
+// ---------- Listas personalizadas ----------
+
+export async function fetchLists(): Promise<CustomList[]> {
+  const { data, error } = await supabase.from("lists").select("id, name, temporary").order("created_at");
+  if (error) {
+    if (error.code === "42P01") return []; // tabela ainda não criada (etapa 5)
+    throw error;
+  }
+  return (data ?? []) as CustomList[];
+}
+
+export async function createList(name: string, temporary: boolean): Promise<CustomList> {
+  const { data, error } = await supabase
+    .from("lists")
+    .insert({ name: name.trim(), temporary })
+    .select("id, name, temporary")
+    .single();
+  if (error) throw error;
+  return data as CustomList;
+}
+
+export async function updateList(id: string, patch: { name?: string; temporary?: boolean }) {
+  const { error } = await supabase.from("lists").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/** Apaga a lista e todos os itens dela. */
+export async function deleteList(id: string) {
+  const { error } = await supabase.from("lists").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------- Histórico de compras ----------
+
+export interface ShoppingTrip {
+  id: string;
+  doneAt: Date;
+  items: NewItem[];
+}
+
+export async function fetchTrips(limit = 24): Promise<ShoppingTrip[]> {
+  const { data, error } = await supabase
+    .from("shopping_trips")
+    .select("id, done_at, items")
+    .order("done_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    if (error.code === "42P01") return [];
+    throw error;
+  }
+  return (data ?? []).map((t) => {
+    const [y, m, d] = (t.done_at as string).split("-").map(Number);
+    return { id: t.id as string, doneAt: new Date(y, m - 1, d), items: (t.items as NewItem[]) ?? [] };
+  });
+}
+
+/**
+ * "Compras feitas": guarda o dia e os itens comprados (marcados) no histórico
+ * e tira esses itens da lista. O que não foi comprado continua na lista.
+ */
+export async function recordShoppingTrip(bought: ShoppingItem[], doneAt = new Date()) {
+  const items = bought.map((i) => ({ name: i.name, ...(i.quantity ? { quantity: i.quantity } : {}) }));
+  const { error } = await supabase.from("shopping_trips").insert({ done_at: toDay(doneAt), items });
+  if (error) throw error;
+  if (bought.length) {
+    const { error: delError } = await supabase.from("shopping_items").delete().in("id", bought.map((i) => i.id));
+    if (delError) throw delError;
+  }
 }
 
 // =============================================================
@@ -272,7 +410,6 @@ export interface Cycle {
 }
 
 // Datas sem hora são guardadas como "AAAA-MM-DD" e lidas no fuso local.
-const toDay = (d: Date) => format(d, "yyyy-MM-dd");
 const fromDay = (s: string) => {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);

@@ -7,13 +7,17 @@ import {
   fetchCycles,
   fetchReminders,
   fetchShoppingItems,
+  fetchLists,
+  fetchTrips,
 } from "@/lib/data";
 
 // Chaves dos dados guardados em memória pelo React Query.
 export const keys = {
   activities: (u?: string) => ["activities", u],
   reminders: (u?: string) => ["reminders", u],
-  shopping: (u?: string) => ["shopping", u],
+  shopping: (u?: string, listId?: string) => (listId ? ["shopping", u, listId] : ["shopping", u]),
+  lists: (u?: string) => ["lists", u],
+  trips: (u?: string) => ["trips", u],
   birthdays: (u?: string) => ["birthdays", u],
   cycles: (u?: string) => ["cycles", u],
 };
@@ -26,6 +30,7 @@ export function useUserId() {
 
 /** Recarrega do Supabase os dados indicados. */
 export function refresh(userId: string | undefined, ...names: DataName[]) {
+  // "shopping" atualiza a lista de compras e todas as listas personalizadas.
   for (const name of names) queryClient.invalidateQueries({ queryKey: keys[name](userId) });
 }
 
@@ -39,9 +44,24 @@ export function useReminders() {
   return useQuery({ queryKey: keys.reminders(userId), queryFn: () => fetchReminders(3), enabled: !!userId });
 }
 
-export function useShopping() {
+/** Itens de uma lista. Sem listId = lista de compras. */
+export function useShopping(listId?: string) {
   const userId = useUserId();
-  return useQuery({ queryKey: keys.shopping(userId), queryFn: fetchShoppingItems, enabled: !!userId });
+  return useQuery({
+    queryKey: keys.shopping(userId, listId),
+    queryFn: () => fetchShoppingItems(listId),
+    enabled: !!userId,
+  });
+}
+
+export function useLists() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.lists(userId), queryFn: fetchLists, enabled: !!userId });
+}
+
+export function useTrips() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.trips(userId), queryFn: () => fetchTrips(), enabled: !!userId });
 }
 
 export function useBirthdays() {

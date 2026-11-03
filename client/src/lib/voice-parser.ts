@@ -13,6 +13,8 @@ export type VoiceCommand =
       title: string;
       address?: string;
       phone?: string;
+      /** dias da semana em que repete (0 = domingo ... 6 = sábado) */
+      repeatDays?: number[];
       date: Date;
       hasTime: boolean;
       category: string;
@@ -212,6 +214,43 @@ function findTime(text: string): TimeMatch | undefined {
 }
 
 // ---------------------------------------------------------------
+// Repetição: "todo dia", "de segunda a sexta", "toda terça e quinta"
+// ---------------------------------------------------------------
+
+const WD = "(?:segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo)s?(?:[-\\s]feiras?)?";
+
+function weekdayNumber(word: string): number {
+  const w = word.replace(/s?(?:[-\s]feiras?)?$/, "").replace(/s$/, "");
+  return WEEKDAYS[w] ?? WEEKDAYS[w + "s"] ?? -1;
+}
+
+function findRepeat(text: string): { days: number[]; remove: string[] } | undefined {
+  let m: RegExpMatchArray | null;
+  if ((m = text.match(/\b(?:todos\s+os\s+dias|todo\s+(?:santo\s+)?dia|diariamente)\b/))) {
+    return { days: [0, 1, 2, 3, 4, 5, 6], remove: [m[0]] };
+  }
+  if ((m = text.match(new RegExp(`\\b(?:de\\s+|toda\\s+)?segunda(?:[-\\s]feira)?\\s+a\\s+sexta(?:[-\\s]feira)?|\\bdias\\s+[úu]teis${END}|\\bdurante\\s+a\\s+semana${END}`)))) {
+    return { days: [1, 2, 3, 4, 5], remove: [m[0]] };
+  }
+  if ((m = text.match(/\b(?:todo\s+|todos\s+os\s+|nos\s+|aos\s+)?fins?\s+de\s+semana\b/))) {
+    return { days: [0, 6], remove: [m[0]] };
+  }
+  const list = new RegExp(
+    `(?:${START}(toda|todo|todas\\s+as|todos\\s+os|nas|nos|às|as|aos)\\s+)?(${WD}(?:\\s*(?:,|e)\\s*(?:a\\s+|o\\s+)?${WD})*)`,
+  );
+  if ((m = text.match(list))) {
+    const prefix = m[1] ?? "";
+    const words = m[2].split(/\s*(?:,|\be\b)\s*/).map((w) => w.replace(/^(?:a|o)\s+/, "").trim()).filter(Boolean);
+    const plural = words.some((w) => /^(?:segundas|terças|tercas|quartas|quintas|sextas|sábados|sabados|domingos)/.test(w));
+    if (/^tod/.test(prefix) || plural) {
+      const days = Array.from(new Set(words.map(weekdayNumber).filter((d) => d >= 0))).sort();
+      if (days.length) return { days, remove: [m[0]] };
+    }
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------
 // "Avisar X minutos antes"
 // ---------------------------------------------------------------
 
@@ -378,7 +417,10 @@ function parseActivity(original: string, now: Date): VoiceCommand {
   const advance = findAdvance(text);
   if (advance) text = removeAll(text, advance.remove);
 
-  const dateFound = findDate(text, now, false);
+  const repeat = findRepeat(text);
+  if (repeat) text = removeAll(text, repeat.remove);
+
+  const dateFound = repeat ? undefined : findDate(text, now, false);
   if (dateFound) text = removeAll(text, dateFound.remove);
 
   const timeFound = dateFound?.exactTime ? undefined : findTime(text);
@@ -416,6 +458,18 @@ function parseActivity(original: string, now: Date): VoiceCommand {
     }
   }
 
+  // Recorrente: começa na próxima vez que cair num dos dias escolhidos.
+  if (repeat) {
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(startOfDay(now), i);
+      if (!repeat.days.includes(d.getDay())) continue;
+      d.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      if (i === 0 && hasTime && d.getTime() < now.getTime() - 60_000) continue;
+      date = d;
+      break;
+    }
+  }
+
   const minutesBefore = advance ? advance.minutes : isAlarm ? 0 : 30;
 
   return {
@@ -423,6 +477,7 @@ function parseActivity(original: string, now: Date): VoiceCommand {
     title: capitalize(title),
     address,
     phone,
+    repeatDays: repeat?.days,
     date,
     hasTime,
     category: guessCategory(original),
@@ -468,6 +523,19 @@ export function formatAddress(address: string): string {
 // ---------------------------------------------------------------
 // Função principal
 // ---------------------------------------------------------------
+
+const UNIT =
+  "(?:kg|quilos?|g|gramas?|l|litros?|ml|unidades?|un|pacotes?|caixas?|latas?|d[úu]zias?|garrafas?|potes?|sacos?|fardos?|bandejas?|ma[çc]os?|rolos?|vidros?|cartelas?)";
+
+/** "2 kg de arroz" -> { name: "Arroz", quantity: "2 kg" } · "3 leites" -> { name: "Leites", quantity: "3" } */
+export function splitQuantity(text: string): { name: string; quantity?: string } {
+  const t = text.trim();
+  const m = t.match(new RegExp(`^(\\d+(?:[.,]\\d+)?|meio|meia|uma?|duas?|dois|tr[êe]s)\\s*(${UNIT})?\\s+(?:de\\s+)?(.+)$`, "i"));
+  if (!m || (!m[2] && !/^\d/.test(m[1]))) return { name: capitalize(t) };
+  const n = wordToNumber(m[1].toLowerCase()) ?? (/^mei[oa]$/i.test(m[1]) ? "1/2" : m[1]);
+  const quantity = [String(n), m[2]?.toLowerCase()].filter(Boolean).join(" ");
+  return { name: capitalize(m[3]), quantity };
+}
 
 /** Trata a frase inteira como itens de compra (usado quando o microfone é aberto na aba Compras). */
 export function parseShoppingItems(input: string): string[] {

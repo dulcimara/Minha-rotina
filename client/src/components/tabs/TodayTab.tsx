@@ -14,6 +14,8 @@ import { useBirthdays, useCycles, useShopping } from "@/hooks/use-data";
 import { alertsWereEnabled, enableAlerts, notificationsStatus } from "@/hooks/use-alerts";
 import { nextBirthdayDate, type Activity } from "@/lib/data";
 import { summarizeCycles } from "@/lib/cycle";
+import { BirthdaysDialog } from "@/components/BirthdaysDialog";
+import { occurrencesBetween } from "@/lib/recurrence";
 import { VOICE_EXAMPLES } from "@/lib/voice-parser";
 import type { TabName } from "@/pages/Home";
 
@@ -117,11 +119,14 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
 
   const firstName = displayName(user);
   const [editingName, setEditingName] = useState(false);
+  const [birthdaysOpen, setBirthdaysOpen] = useState(false);
   const today = startOfDay(new Date());
-  const todayActivities = activities.filter((a) => isToday(a.date));
-  const upcoming = activities
-    .filter((a) => !isToday(a.date) && isAfter(a.date, today) && isBefore(a.date, addDays(today, 8)))
-    .filter((a) => !a.completed)
+  const todayActivities = occurrencesBetween(activities, today, today);
+  // Próximos 7 dias; das recorrentes mostra só a próxima vez, para não repetir a lista.
+  const seen = new Set<string>();
+  const upcoming = occurrencesBetween(activities, addDays(today, 1), addDays(today, 7))
+    .filter((o) => !o.completed)
+    .filter((o) => (o.recurring ? !seen.has(o.baseId) && !!seen.add(o.baseId) : true))
     .slice(0, 5);
 
   const pendingShopping = shopping.filter((i) => !i.checked).length;
@@ -171,7 +176,8 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
             <p className="text-[11px] text-muted-foreground">para comprar</p>
           </button>
           <button
-            onClick={() => onNavigate("agenda")}
+            onClick={() => setBirthdaysOpen(true)}
+            data-testid="button-open-birthdays"
             className="rounded-xl bg-white/70 dark:bg-white/5 p-3 text-left shadow-sm hover:bg-white transition-colors dark:hover:bg-white/10"
           >
             <Cake className="h-4 w-4 text-primary mb-1" />
@@ -257,6 +263,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
           ))}
         </section>
       )}
+      <BirthdaysDialog open={birthdaysOpen} onOpenChange={setBirthdaysOpen} />
     </div>
   );
 }

@@ -5,11 +5,12 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ActivityFormDialog } from "@/components/ActivityFormDialog";
 import { VoiceAssistant } from "@/components/VoiceAssistant";
 import { AlertModal } from "@/components/AlertModal";
+import { MonthlyShoppingPrompt } from "@/components/MonthlyShoppingPrompt";
 import { TodayTab } from "@/components/tabs/TodayTab";
 import { AgendaTab } from "@/components/tabs/AgendaTab";
-import { ShoppingTab } from "@/components/tabs/ShoppingTab";
+import { ListsTab } from "@/components/tabs/ListsTab";
 import { CycleTab } from "@/components/tabs/CycleTab";
-import { CalendarDays, Droplet, Home as HomeIcon, LogOut, Mic, Plus, ShoppingCart } from "lucide-react";
+import { CalendarDays, Droplet, Home as HomeIcon, ListChecks, LogOut, Mic, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { keys, refresh, useActivities, useUserId } from "@/hooks/use-data";
@@ -20,6 +21,7 @@ import {
   createActivity,
   deleteActivity,
   setActivityCompleted,
+  setOccurrenceCompleted,
   updateActivity,
   type Activity,
   type ActivityInput,
@@ -30,7 +32,7 @@ export type TabName = "hoje" | "agenda" | "compras" | "ciclo";
 const NAV: { tab: TabName; label: string; icon: typeof HomeIcon }[] = [
   { tab: "hoje", label: "Hoje", icon: HomeIcon },
   { tab: "agenda", label: "Agenda", icon: CalendarDays },
-  { tab: "compras", label: "Compras", icon: ShoppingCart },
+  { tab: "compras", label: "Listas", icon: ListChecks },
   { tab: "ciclo", label: "Ciclo", icon: Droplet },
 ];
 
@@ -42,6 +44,8 @@ export default function Home() {
   const alerts = useAlerts();
 
   const [tab, setTab] = useState<TabName>("hoje");
+  /** lista aberta na aba Listas (vazio = lista de compras) */
+  const [listId, setListId] = useState<string | undefined>();
   const [voice, setVoice] = useState<{ open: boolean; mode: "voice" | "type"; context?: "shopping" }>({
     open: false,
     mode: "voice",
@@ -67,11 +71,28 @@ export default function Home() {
     onError: showError("Não foi possível salvar"),
   });
 
+  // Ids de ocorrências de atividades recorrentes vêm como "<id>@AAAA-MM-DD".
+  const splitId = (id: string) => {
+    const [baseId, day] = id.split("@");
+    return { baseId, day };
+  };
+
   const toggleMutation = useMutation({
-    mutationFn: ({ id, completed }: { id: string; completed: boolean }) => setActivityCompleted(id, completed),
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) => {
+      const { baseId, day } = splitId(id);
+      if (!day) return setActivityCompleted(baseId, completed);
+      const current = activities.find((a) => a.id === baseId)?.completedDates ?? [];
+      return setOccurrenceCompleted(baseId, day, completed, current);
+    },
     onMutate: ({ id, completed }) => {
+      const { baseId, day } = splitId(id);
       queryClient.setQueryData<Activity[]>(keys.activities(userId), (old) =>
-        old?.map((a) => (a.id === id ? { ...a, completed } : a)),
+        old?.map((a) => {
+          if (a.id !== baseId) return a;
+          if (!day) return { ...a, completed };
+          const dates = a.completedDates ?? [];
+          return { ...a, completedDates: completed ? [...dates, day] : dates.filter((d) => d !== day) };
+        }),
       );
     },
     onError: (error: Error) => {
@@ -91,15 +112,19 @@ export default function Home() {
 
   const openNew = (date?: Date) => setForm((f) => ({ open: true, key: f.key + 1, activity: null, date }));
   const openEdit = (id: string) => {
-    const activity = activities.find((a) => a.id === id);
+    const activity = activities.find((a) => a.id === splitId(id).baseId);
     if (activity) setForm((f) => ({ open: true, key: f.key + 1, activity }));
   };
 
   const cardHandlers = {
     onEdit: openEdit,
     onDelete: (id: string) => {
-      const a = activities.find((x) => x.id === id);
-      if (window.confirm(`Excluir "${a?.title ?? "este compromisso"}"?`)) deleteMutation.mutate(id);
+      const { baseId } = splitId(id);
+      const a = activities.find((x) => x.id === baseId);
+      const msg = a?.repeatDays?.length
+        ? `Excluir "${a.title}" e todas as repetições?`
+        : `Excluir "${a?.title ?? "este compromisso"}"?`;
+      if (window.confirm(msg)) deleteMutation.mutate(baseId);
     },
     onToggleComplete: (id: string, completed: boolean) => toggleMutation.mutate({ id, completed }),
   };
@@ -139,8 +164,12 @@ export default function Home() {
             cardHandlers={cardHandlers}
           />
         )}
-        {tab === "agenda" && <AgendaTab activities={activities} onAdd={openNew} cardHandlers={cardHandlers} />}
-        {tab === "compras" && <ShoppingTab onVoice={() => openVoice("voice", "shopping")} />}
+        {tab === "agenda" && (
+          <AgendaTab activities={activities} onSave={(input) => saveMutation.mutate({ input })} />
+        )}
+        {tab === "compras" && (
+          <ListsTab listId={listId} onSelectList={setListId} onVoice={() => openVoice("voice", "shopping")} />
+        )}
         {tab === "ciclo" && <CycleTab />}
       </main>
 
@@ -173,6 +202,7 @@ export default function Home() {
         open={voice.open}
         mode={voice.mode}
         context={voice.context}
+        listId={voice.context === "shopping" ? listId : undefined}
         onOpenChange={(open) => setVoice((v) => ({ ...v, open }))}
       />
 
@@ -184,6 +214,9 @@ export default function Home() {
         defaultDate={form.date}
         onSave={(input) => saveMutation.mutate({ id: form.activity?.id, input })}
       />
+
+      {/* espera o alerta (se houver) ser fechado, para não abrir uma janela sobre a outra */}
+      <MonthlyShoppingPrompt paused={!!alerts.current} />
 
       <AlertModal alert={alerts.current} onDismiss={alerts.dismiss} onSnooze={() => alerts.snooze(5)} />
     </div>

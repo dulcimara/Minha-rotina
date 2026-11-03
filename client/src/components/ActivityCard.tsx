@@ -2,7 +2,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Clock, Bell, Volume2, MapPin, Phone } from "lucide-react";
+import { Pencil, Trash2, Clock, Bell, Volume2, MapPin, Phone, Repeat } from "lucide-react";
+import { repeatLabel } from "@/lib/recurrence";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ interface ActivityCardProps {
   description?: string;
   address?: string;
   phone?: string;
+  repeatDays?: number[];
   date: Date;
   category: string;
   completed: boolean;
@@ -46,6 +48,7 @@ export function ActivityCard({
   description,
   address,
   phone,
+  repeatDays,
   date,
   category,
   completed,
@@ -132,6 +135,13 @@ export function ActivityCard({
               </span>
             </div>
             
+            {repeatDays?.length ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Repeat className="h-3.5 w-3.5" />
+                <span>{repeatLabel(repeatDays)}</span>
+              </div>
+            ) : null}
+
             {reminderEnabled && reminderDateTime && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 {reminderType === "voice" ? (

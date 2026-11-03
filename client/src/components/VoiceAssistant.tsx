@@ -16,10 +16,12 @@ import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/NativeSelect";
 import { Mic, Keyboard, Plus, X, Loader2 } from "lucide-react";
 import { KindHeader } from "@/components/KindHeader";
+import { WeekdayPicker } from "@/components/WeekdayPicker";
+import { repeatLabel } from "@/lib/recurrence";
 import { useToast } from "@/hooks/use-toast";
-import { refresh, useCycles, useUserId } from "@/hooks/use-data";
+import { refresh, useCycles, useLists, useUserId } from "@/hooks/use-data";
 import { listen, speak, speechRecognitionSupported } from "@/lib/speech";
-import { parseShoppingItems, parseVoiceCommand, VOICE_EXAMPLES, type VoiceCommand } from "@/lib/voice-parser";
+import { parseShoppingItems, parseVoiceCommand, splitQuantity, VOICE_EXAMPLES, type VoiceCommand } from "@/lib/voice-parser";
 import { CATEGORIES, MONTH_NAMES, REMINDER_OPTIONS, reminderLabel } from "@/lib/options";
 import {
   addShoppingItems,
@@ -36,6 +38,8 @@ interface VoiceAssistantProps {
   mode: "voice" | "type";
   /** Aberto pela aba Compras: o que for falado vira item da lista. */
   context?: "shopping";
+  /** lista personalizada aberta (vazio = lista de compras) */
+  listId?: string;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -45,6 +49,7 @@ interface Draft {
   title: string;
   address: string;
   phone: string;
+  repeatDays: number[];
   date: string; // AAAA-MM-DD
   time: string; // HH:mm
   category: string;
@@ -64,6 +69,7 @@ function emptyDraft(): Draft {
     title: "",
     address: "",
     phone: "",
+    repeatDays: [],
     date: format(now, "yyyy-MM-dd"),
     time: "09:00",
     category: "outros",
@@ -87,6 +93,7 @@ function draftFrom(cmd: VoiceCommand, heard: string): Draft {
         title: cmd.title,
         address: cmd.address ?? "",
         phone: cmd.phone ?? "",
+        repeatDays: cmd.repeatDays ?? [],
         date: format(cmd.date, "yyyy-MM-dd"),
         time: format(cmd.date, "HH:mm"),
         category: cmd.category,
@@ -126,7 +133,9 @@ const parseDay = (s: string) => {
   return new Date(y, m - 1, d);
 };
 
-export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssistantProps) {
+export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: VoiceAssistantProps) {
+  const { data: lists = [] } = useLists();
+  const listName = lists.find((l) => l.id === listId)?.name;
   const { toast } = useToast();
   const userId = useUserId();
   const { data: cycles = [] } = useCycles();
@@ -204,6 +213,7 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
           title: draft.title.trim() || "Compromisso",
           ...(draft.address.trim() ? { address: draft.address } : {}),
           ...(draft.phone.trim() ? { phone: draft.phone } : {}),
+          ...(draft.repeatDays.length ? { repeatDays: draft.repeatDays } : {}),
           date,
           category: draft.category,
           reminderEnabled: draft.reminderEnabled,
@@ -211,13 +221,16 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
           reminderMinutesBefore: draft.minutesBefore,
         });
         refresh(userId, "activities");
-        spoken = `Pronto! ${draft.title} marcado para ${format(date, "EEEE, d 'de' MMMM, 'às' HH:mm", { locale: ptBR })}.`;
+        spoken = draft.repeatDays.length
+          ? `Pronto! ${draft.title}, ${repeatLabel(draft.repeatDays).toLowerCase()}, às ${format(date, "HH:mm")}.`
+          : `Pronto! ${draft.title} marcado para ${format(date, "EEEE, d 'de' MMMM, 'às' HH:mm", { locale: ptBR })}.`;
       } else if (draft.kind === "shopping") {
         const items = draft.items.map((i) => i.trim()).filter(Boolean);
         if (!items.length) throw new Error("Inclua pelo menos um item.");
-        await addShoppingItems(items);
+        await addShoppingItems(items.map(splitQuantity), listId);
         refresh(userId, "shopping");
-        spoken = items.length === 1 ? `${items[0]} foi para a lista de compras.` : `${items.length} itens foram para a lista de compras.`;
+        const where = listName ? `a lista ${listName}` : "a lista de compras";
+        spoken = items.length === 1 ? `${items[0]} foi para ${where}.` : `${items.length} itens foram para ${where}.`;
       } else if (draft.kind === "birthday") {
         if (!draft.name.trim()) throw new Error("Diga de quem é o aniversário.");
         await createBirthday({
@@ -333,7 +346,7 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
           <>
             <KindHeader
               kind={isPeriod ? "period" : (draft.kind as "activity" | "shopping" | "birthday")}
-              title={understood ? confirmTitle(draft.kind) : "Não entendi tudo. Confere pra mim?"}
+              title={understood ? (draft.kind === "shopping" && listName ? `Vou colocar na lista "${listName}":` : confirmTitle(draft.kind)) : "Não entendi tudo. Confere pra mim?"}
               heard={heard}
             />
             {!understood && (
@@ -351,7 +364,7 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="va-date">Dia</Label>
+                      <Label htmlFor="va-date">{draft.repeatDays.length ? "Começa em" : "Dia"}</Label>
                       <Input id="va-date" type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} />
                     </div>
                     <div className="space-y-1.5">
@@ -359,6 +372,7 @@ export function VoiceAssistant({ open, mode, context, onOpenChange }: VoiceAssis
                       <Input id="va-time" type="time" value={draft.time} onChange={(e) => set({ time: e.target.value })} />
                     </div>
                   </div>
+                  <WeekdayPicker id="va-repeat" value={draft.repeatDays} onChange={(repeatDays) => set({ repeatDays })} />
                   <div className="grid gap-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="va-address">Endereço <span className="text-muted-foreground font-normal">(opc.)</span></Label>

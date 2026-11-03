@@ -20,13 +20,18 @@ interface KindHeaderProps {
   heard?: string;
   /** Texto de apoio quando não há frase falada */
   description?: string;
+  /** Usado fora de uma janela (ex.: tela Agenda) */
+  standalone?: boolean;
 }
 
 /**
  * Cabeçalho das telas de cadastro: mostra de que tipo é o cadastro
  * (compromisso, compras, aniversário ou ciclo) com o ícone em destaque.
  */
-export function KindHeader({ kind, label: customLabel, title, heard, description }: KindHeaderProps) {
+export function KindHeader({ kind, label: customLabel, title, heard, description, standalone }: KindHeaderProps) {
+  // Dentro de uma janela usa os títulos acessíveis da janela; fora, títulos comuns.
+  const Title = standalone ? "h2" : DialogTitle;
+  const Description = standalone ? "p" : DialogDescription;
   const { label: defaultLabel, icon: Icon } = KINDS[kind];
   const label = customLabel ?? defaultLabel;
   return (
@@ -40,11 +45,11 @@ export function KindHeader({ kind, label: customLabel, title, heard, description
         </div>
         <div className="min-w-0 space-y-0.5 text-left">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">{label}</p>
-          <DialogTitle className="text-lg font-display font-semibold leading-snug">{title}</DialogTitle>
+          <Title className="text-lg font-display font-semibold leading-snug">{title}</Title>
           {heard ? (
-            <DialogDescription className="text-sm italic text-muted-foreground line-clamp-3">“{heard}”</DialogDescription>
+            <Description className="text-sm italic text-muted-foreground line-clamp-3">“{heard}”</Description>
           ) : (
-            <DialogDescription className="text-sm text-muted-foreground">{description}</DialogDescription>
+            <Description className="text-sm text-muted-foreground">{description}</Description>
           )}
         </div>
       </div>
