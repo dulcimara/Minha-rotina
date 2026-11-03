@@ -179,6 +179,11 @@ export default function Home() {
             loading={isLoading}
             onAdd={() => openNew()}
             onNavigate={setTab}
+            onOpenChildren={() => setChildrenOpen(true)}
+            onOpenMovies={() => {
+              setListId(MOVIES);
+              setTab("compras");
+            }}
             cardHandlers={cardHandlers}
           />
         )}
