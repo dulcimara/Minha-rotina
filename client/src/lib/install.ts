@@ -70,20 +70,43 @@ export function useInstall() {
   };
 }
 
-// Banner da tela inicial: depois de fechado, volta só em 7 dias.
-const KEY = "minha-rotina:instalar-dispensado";
-export function bannerDismissed(): boolean {
+// Convite da tela inicial: aparece só no primeiro uso do app (na primeira sessão).
+// Some de vez quando a pessoa instala, toca em "Instalar" ou fecha no X.
+// Depois disso, quem quiser instala por Configurações → Instalar o app.
+const KEY = "minha-rotina:instalar-convite";
+const SESSION = "minha-rotina:instalar-convite-sessao";
+
+function read(k: string, store: Storage): string | null {
   try {
-    const t = Number(localStorage.getItem(KEY));
-    return Boolean(t) && Date.now() - t < 7 * 864e5;
+    return store.getItem(k);
   } catch {
-    return false;
+    return null;
   }
 }
-export function dismissBanner() {
+function write(k: string, v: string, store: Storage) {
   try {
-    localStorage.setItem(KEY, String(Date.now()));
+    store.setItem(k, v);
   } catch {
-    /* sem armazenamento: o banner volta na próxima vez */
+    /* sem armazenamento: o convite pode voltar na próxima vez */
   }
+}
+
+/** Mostra o convite? Só na sessão em que ele apareceu pela primeira vez. */
+export function shouldShowBanner(): boolean {
+  if (typeof window === "undefined") return false;
+  const state = read(KEY, localStorage);
+  if (state === "fechado" || state === "instalado") return false;
+  if (state === "visto") return read(SESSION, sessionStorage) === "1";
+  // primeiro uso: marca como visto, mas deixa aparecer até fechar o app
+  write(KEY, "visto", localStorage);
+  write(SESSION, "1", sessionStorage);
+  return true;
+}
+
+export function dismissBanner(reason: "fechado" | "instalado" = "fechado") {
+  write(KEY, reason, localStorage);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("appinstalled", () => dismissBanner("instalado"));
 }

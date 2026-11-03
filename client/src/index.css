@@ -307,3 +307,25 @@
     background-image: linear-gradient(145deg, hsl(var(--mic-1)) 0%, hsl(var(--mic-2)) 100%);
   }
 }
+
+/* Campos de data e hora: no celular (principalmente iPhone) eles têm largura mínima própria
+   e podiam passar por cima do campo ao lado. Aqui eles sempre cabem na coluna. */
+.grid > * {
+  min-width: 0;
+}
+input[type="date"],
+input[type="time"] {
+  min-width: 0;
+  max-width: 100%;
+}
+@supports (-webkit-touch-callout: none) {
+  input[type="date"],
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
