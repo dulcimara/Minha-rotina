@@ -150,7 +150,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
         <div className="container max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <h1 className="font-brand text-[1.35rem] text-foreground flex items-center gap-2" data-testid="text-app-title">
-            <img src="/logo-mark.png" alt="" className="h-7 w-auto" />
+            <img src="/icon-192.png" alt="" className="h-8 w-8 drop-shadow-[0_3px_6px_rgb(120_40_140/0.25)]" />
             Minha Rotina
           </h1>
           <div className="flex items-center gap-1">
