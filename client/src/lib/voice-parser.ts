@@ -1,3 +1,6 @@
+import { PRESETS, type Repeat } from "@/lib/lembretes";
+import { SPORTS } from "@/lib/workouts";
+
 /**
  * Interpretador de comandos de voz (sem IA).
  *
@@ -25,6 +28,18 @@ export type VoiceCommand =
   | { kind: "birthday"; name: string; day?: number; month?: number; giftIdeas?: string }
   | { kind: "period_start"; date: Date }
   | { kind: "period_end"; date: Date }
+  | { kind: "reminder"; title: string; emoji?: string; date: Date; time?: string; repeat: Repeat }
+  | { kind: "workout"; activity: string; date: Date; minutes?: number; distanceKm?: number }
+  | {
+      kind: "medication";
+      name: string;
+      dose?: string;
+      everyHours?: number;
+      firstTime?: string;
+      days?: number;
+      forName?: string;
+    }
+  | { kind: "movie"; title: string; movieKind: "filme" | "serie"; status: "quero" | "assistindo" | "assisti"; rating?: number; where?: string }
   | { kind: "unknown"; text: string };
 
 // Limites de palavra que funcionam com acentos ("às", "amanhã"); o \\b do
@@ -545,6 +560,226 @@ export function parseShoppingItems(input: string): string[] {
   return cmd.kind === "shopping" ? cmd.items : [];
 }
 
+// ---------------------------------------------------------------
+// Lembretes, exercícios, remédios e filmes
+// ---------------------------------------------------------------
+
+const deaccent = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "");
+const COMMAND_WORDS_RE =
+  /^(?:(?:por\s+favor|ok|oi|ei|eu)\s+)*(?:incluir|inclui|inclua|adicionar|adiciona|adicione|criar|cria|crie|colocar|coloca|coloque|registrar|registra|registre|anotar|anota|anote|cadastrar|cadastra|cadastre|salvar|salva|salve|marcar|marca|marque|novo|nova|um|uma)\b\s*/;
+
+const REMINDER_RE = /\blembretes?\b/;
+const LONG_REPEAT: { re: RegExp; repeat: Repeat }[] = [
+  { re: /\b(?:todos\s+os\s+dias|todo\s+dia|diariamente)\b/, repeat: "dia" },
+  { re: /\b(?:toda\s+semana|todas\s+as\s+semanas|semanalmente|uma\s+vez\s+por\s+semana)\b/, repeat: "semana" },
+  { re: /\b(?:a\s+cada\s+(?:6|seis)\s+meses|de\s+(?:6|seis)\s+em\s+(?:6|seis)\s+meses|semestral(?:mente)?|duas\s+vezes\s+por\s+ano)\b/, repeat: "semestre" },
+  { re: /\b(?:todo\s+m[êe]s|todos\s+os\s+meses|mensalmente|uma\s+vez\s+por\s+m[êe]s)\b/, repeat: "mes" },
+  { re: /\b(?:todo\s+ano|todos\s+os\s+anos|anualmente|uma\s+vez\s+por\s+ano)\b/, repeat: "ano" },
+];
+
+/** Lembrete pronto que combina com a frase ("pagar o cartão" -> "Pagar cartão de crédito"). */
+const PRESET_KEYS: [RegExp, string][] = [
+  [/buscar\s+(?:as\s+crian[çc]as\s+|os\s+filhos\s+|o\s+\w+\s+|a\s+\w+\s+)?na\s+escola|buscar\s+na\s+escola/, "Buscar na escola"],
+  [/ginecologista/, "Agendar ginecologista"],
+  [/oftalmologista|oculista/, "Agendar oftalmologista"],
+  [/\bvacina\b(?!.*\b(?:pet|cachorro|gato)\b)/, "Tomar vacina"],
+  [/cart[ãa]o(?:\s+de\s+cr[ée]dito)?/, "Pagar cartão de crédito"],
+  [/investimento|investir/, "Fazer investimento"],
+  [/dentista/, "Agendar dentista"],
+  [/mamografia/, "Agendar mamografia"],
+  [/exames?\s+de\s+rotina|check-?up/, "Fazer exames de rotina"],
+  [/aluguel|condom[íi]nio/, "Pagar aluguel ou condomínio"],
+  [/ipva|iptu/, "Pagar IPVA / IPTU"],
+  [/revis[ãa]o\s+do\s+carro/, "Revisão do carro"],
+  [/(?:vacina|verm[íi]fugo).*(?:pet|cachorro|gato)|verm[íi]fugo/, "Vacina ou vermífugo do pet"],
+  [/renovar\s+(?:a\s+)?receita/, "Renovar receita"],
+  [/filtro\s+(?:de\s+)?[áa]gua/, "Trocar filtro de água"],
+  [/roupa\s+de\s+cama/, "Trocar roupa de cama"],
+  [/pagar\s+(?:a\s+)?conta/, "Pagar conta"],
+];
+function matchPreset(text: string) {
+  const hit = PRESET_KEYS.find(([re]) => re.test(text));
+  return hit ? PRESETS.find((p) => p.title === hit[1]) : undefined;
+}
+
+function parseReminder(original: string, now: Date): VoiceCommand {
+  let text = original;
+  const adv = findAdvance(text); // lembrete não tem "X minutos antes": tira da frase
+  if (adv) text = removeAll(text, adv.remove);
+  let repeat: Repeat = "nao";
+  for (const r of LONG_REPEAT) {
+    const m = text.match(r.re);
+    if (m) {
+      repeat = r.repeat;
+      text = text.replace(m[0], " ");
+      break;
+    }
+  }
+  const dateFound = findDate(text, now, false);
+  if (dateFound) text = removeAll(text, dateFound.remove);
+  const timeFound = dateFound?.exactTime ? undefined : findTime(text);
+  if (timeFound) text = removeAll(text, timeFound.remove);
+  const preset = matchPreset(original);
+  let title = cleanup(
+    text
+      .replace(COMMAND_WORDS_RE, "")
+      .replace(/^(?:um\s+|uma\s+|novo\s+)?lembretes?\s*(?:de|para|pra|:)?\s*/, "")
+      .replace(/^(?:me\s+)?(?:lembr[ae]r?|avis[ae]r?)\s+(?:me\s+)?(?:de|que|para|pra)?\s*/, "")
+      .replace(/\s+(?:para|pra|no|na|de|às|as|à|e|dia)$/, ""),
+  );
+  if (!title && preset) title = preset.title;
+  const time = dateFound?.exactTime
+    ? `${String(dateFound.date.getHours()).padStart(2, "0")}:${String(dateFound.date.getMinutes()).padStart(2, "0")}`
+    : timeFound
+      ? `${String(timeFound.hours).padStart(2, "0")}:${String(timeFound.minutes).padStart(2, "0")}`
+      : undefined;
+  return {
+    kind: "reminder",
+    title: capitalize(title || "Lembrete"),
+    emoji: preset?.emoji,
+    date: dateFound ? dateFound.date : startOfDay(now),
+    time,
+    repeat: repeat === "nao" && preset && !dateFound ? preset.repeat : repeat,
+  };
+}
+
+const WORKOUT_VERBS: [RegExp, string][] = [
+  [/\bcaminhei\b|\bcaminhada\b|\bandei\b/, "Caminhada"],
+  [/\bcorri\b|\bcorrida\b/, "Corrida"],
+  [/\bpedalei\b|\bbike\b|\bbicicleta\b/, "Bicicleta"],
+  [/\bnadei\b|\bnata[çc][ãa]o\b/, "Natação"],
+  [/\bmalhei\b|\bacademia\b|\bmuscula[çc][ãa]o\b/, "Musculação"],
+  [/\bdancei\b|\bdan[çc]a\b|\bzumba\b/, "Dança"],
+  [/\balonguei\b/, "Alongamento"],
+];
+const WORKOUT_RE = /\b(?:fiz|pratiquei|treinei|treino|caminhei|corri|pedalei|nadei|malhei|dancei|joguei|alonguei|exerc[íi]cios?|atividade\s+f[íi]sica)\b/;
+
+function findSport(text: string): string | undefined {
+  const plain = deaccent(text);
+  const sport = SPORTS.find((sp) => new RegExp(`\\b${deaccent(sp.name.toLowerCase())}\\b`).test(plain));
+  if (sport) return sport.name;
+  return WORKOUT_VERBS.find(([re]) => re.test(text))?.[1];
+}
+
+function parseWorkout(text: string, now: Date): VoiceCommand {
+  let minutes: number | undefined;
+  let m: RegExpMatchArray | null;
+  if ((m = text.match(/(\d+(?:[.,]\d+)?)\s*(?:horas?|h)(?:\s+e\s+(\d+)(?:\s*(?:min|minutos?))?)?/))) {
+    minutes = Math.round(Number(m[1].replace(",", ".")) * 60) + (m[2] ? Number(m[2]) : 0);
+    if (/\bhoras?\s+e\s+meia\b/.test(text)) minutes += 30;
+  } else if ((m = text.match(/(\d+)\s*(?:min|minutos?)\b/))) minutes = Number(m[1]);
+  else if (/\b(?:uma\s+)?hora\s+e\s+meia\b/.test(text)) minutes = 90;
+  else if (/\bmeia\s+hora\b/.test(text)) minutes = 30;
+  else if (/\b(?:uma|1)\s+hora\b/.test(text)) minutes = 60;
+
+  let distanceKm: number | undefined;
+  if ((m = text.match(/(\d+(?:[.,]\d+)?)\s*(?:km|quil[ôo]metros?)\b/))) distanceKm = Number(m[1].replace(",", "."));
+  else if ((m = text.match(/(\d+)\s*(?:m|metros)\b/))) distanceKm = Number(m[1]) / 1000;
+
+  const found = /\banteontem\b/.test(text)
+    ? { date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2) }
+    : /\bontem\b/.test(text)
+      ? { date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1) }
+      : findDate(text, now, true);
+  return {
+    kind: "workout",
+    activity: findSport(text) ?? "Caminhada",
+    date: found ? startOfDay(found.date) : startOfDay(now),
+    minutes,
+    distanceKm,
+  };
+}
+
+const MEDICATION_WORD_RE = /\b(?:rem[ée]dios?|medicamentos?|medica[çc][ãa]o|xarope|antibi[óo]tico)\b/;
+const MEDICATION_SCHEDULE_RE = /\b(?:de\s+\d+\s+em\s+\d+\s+horas|a\s+cada\s+\d+\s+horas)\b|\d+(?:[.,]\d+)?\s*(?:ml|mg|gotas?|comprimidos?|c[áa]psulas?)\b/;
+/** Cadastro de remédio: "remédio X de 8 em 8 horas", "cadastrar remédio X". "Me avisa de tomar o remédio às 15h" continua sendo alarme. */
+function isMedication(text: string): boolean {
+  if (/\b(?:me\s+avis[ae]|me\s+lembr[ae]|alarme|lembrete)\b/.test(text)) return false;
+  if (MEDICATION_SCHEDULE_RE.test(text) && (MEDICATION_WORD_RE.test(text) || /\btomar\b/.test(text))) return true;
+  return new RegExp(`^(?:${COMMAND_WORDS_RE.source.slice(1)})?(?:o\\s+|um\\s+)?(?:novo\\s+)?(?:rem[ée]dio|medicamento)\\s+\\S`).test(text);
+}
+
+function parseMedication(text: string, now: Date): VoiceCommand {
+  let rest = text;
+  let m: RegExpMatchArray | null;
+  let everyHours: number | undefined;
+  if ((m = rest.match(/\b(?:de\s+(\d+)\s+em\s+\d+\s+horas|a\s+cada\s+(\d+)\s+horas)\b/))) {
+    everyHours = Number(m[1] ?? m[2]);
+    rest = rest.replace(m[0], " ");
+  }
+  let days: number | undefined;
+  if ((m = rest.match(/\b(?:por|durante)\s+(\d+)\s+dias\b/))) {
+    days = Number(m[1]);
+    rest = rest.replace(m[0], " ");
+  }
+  let dose: string | undefined;
+  if ((m = rest.match(/(\d+(?:[.,]\d+)?)\s*(ml|mg|g|gotas?|comprimidos?|c[áa]psulas?|sach[êe]s?|colher(?:es)?)\b/))) {
+    dose = `${m[1]} ${m[2]}`;
+    rest = rest.replace(m[0], " ");
+  }
+  let forName: string | undefined;
+  if ((m = rest.match(/\b(?:para|pra|do|da)\s+(?:o\s+|a\s+)?([a-zà-ú]+)(?=\s|$)/))) {
+    if (!/^(?:dor|febre|tosse|gripe|pressão|pressao|alergia|dormir|cabeça|cabeca)$/.test(m[1])) {
+      forName = capitalize(m[1]);
+      rest = rest.replace(m[0], " ");
+    }
+  }
+  const time = findTime(rest);
+  if (time) rest = removeAll(rest, time.remove);
+  void now;
+  const name = cleanup(
+    rest
+      .replace(COMMAND_WORDS_RE, "")
+      .replace(/\b(?:rem[ée]dios?|medicamentos?|medica[çc][ãa]o|hor[áa]rio\s+d[eo]|tomar|dar|tomo|toma|começando|comecando|a\s+partir|primeira\s+dose)\b/g, " ")
+      .replace(/^\s*(?:o|a|de|do|da)\s+/, ""),
+  ).split(" ").slice(0, 3).join(" ");
+  return {
+    kind: "medication",
+    name: capitalize(name),
+    dose,
+    everyHours,
+    firstTime: time ? `${String(time.hours).padStart(2, "0")}:${String(time.minutes).padStart(2, "0")}` : undefined,
+    days,
+    forName,
+  };
+}
+
+const MOVIE_RE = /\b(?:filmes?|s[ée]ries?|document[áa]rio|novela)\b/;
+const SERVICES_RE = /\b(?:na|no|pela|pelo)\s+(netflix|prime(?:\s+video)?|amazon|disney(?:\s*\+|\s+plus)?|max|hbo(?:\s+max)?|globoplay|apple\s+tv|youtube|cinema|tv)\b/;
+
+function parseMovie(text: string, raw: string): VoiceCommand {
+  let rest = text;
+  let m: RegExpMatchArray | null;
+  let where: string | undefined;
+  if ((m = rest.match(SERVICES_RE))) {
+    const w = m[1];
+    where = /netflix/.test(w) ? "Netflix" : /prime|amazon/.test(w) ? "Prime Video" : /disney/.test(w) ? "Disney+" : /max|hbo/.test(w) ? "Max"
+      : /globo/.test(w) ? "Globoplay" : /apple/.test(w) ? "Apple TV+" : /youtube/.test(w) ? "YouTube" : /cinema/.test(w) ? "Cinema" : "TV aberta";
+    rest = rest.replace(m[0], " ");
+  }
+  let rating: number | undefined;
+  if ((m = rest.match(/[,\s]*(?:e\s+)?(?:dei\s+)?(?:nota\s+(\d)|(\d)\s+estrelas?)\b/))) {
+    rating = Math.min(5, Math.max(1, Number(m[1] ?? m[2])));
+    rest = rest.replace(m[0], " ");
+  }
+  const status = /\b(?:assisti|já\s+vi|ja\s+vi|vi\s+o|vi\s+a|terminei)\b/.test(rest) ? "assisti" : /\b(?:assistindo|vendo|comecei)\b/.test(rest) ? "assistindo" : "quero";
+  const movieKind = /\bs[ée]ries?\b|\bnovela\b/.test(rest) ? "serie" : "filme";
+  // O título é o que vem depois de "filme"/"série"; sem essa palavra, o que sobra depois dos verbos.
+  const after = rest.match(/\b(?:filmes?|s[ée]ries?|document[áa]rio|novela)\s+(?:chamad[oa]\s+)?(.+)$/);
+  let title = cleanup(
+    after
+      ? after[1]
+      : rest
+          .replace(COMMAND_WORDS_RE, "")
+          .replace(/^(?:(?:eu\s+)?(?:quero|queria|preciso|vou|estou|tô)\s+)?(?:ver|assistir|assisti|vendo|assistindo|comecei\s+a\s+ver|terminei\s+de\s+ver|já\s+vi|vi)\s+(?:o|a|os|as)?\s*/, ""),
+  );
+  title = cleanup(title.replace(/\s+(?:na|no|para|pra|e|de)$/, ""));
+  // Recupera maiúsculas como foram ditas/digitadas ("The Bear", "Ainda Estou Aqui").
+  const idx = raw.toLowerCase().indexOf(title);
+  if (title && idx >= 0) title = raw.slice(idx, idx + title.length);
+  return { kind: "movie", title: capitalize(title), movieKind, status, rating: status === "assisti" ? rating : undefined, where };
+}
+
 export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceCommand {
   const raw = input.trim();
   if (!raw) return { kind: "unknown", text: "" };
@@ -553,11 +788,18 @@ export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceC
     normalizeNumbers(raw.toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ")),
   );
 
+  if (REMINDER_RE.test(text)) return parseReminder(text, now);
   if (PERIOD_RE.test(text)) return parsePeriod(text, now);
+  if (MOVIE_RE.test(text) && !/\b(?:cinema\s+com|ir\s+ao\s+cinema)\b/.test(text)) return parseMovie(text, raw);
+  if (isMedication(text)) return parseMedication(text, now);
+  if (WORKOUT_RE.test(text) && findSport(text)) return parseWorkout(text, now);
   if (/\banivers[áa]rio\b/.test(text) && !/\b(festa|comprar)\b/.test(text)) {
     return parseBirthday(text, now);
   }
   if (SHOPPING_RE.test(text)) return parseShopping(text);
+
+  // "pagar o cartão todo mês dia 10", "agendar ginecologista": vira lembrete
+  if (LONG_REPEAT.slice(2).some((r) => r.re.test(text)) || (matchPreset(text) && !findTime(text))) return parseReminder(text, now);
 
   const hasDateOrTime = Boolean(findDate(text, now, false) || findTime(text));
   if (ACTIVITY_HINT_RE.test(text) || ACTIVITY_COMMAND_RE.test(text) || hasDateOrTime) {
@@ -575,4 +817,8 @@ export const VOICE_EXAMPLES = [
   "Aniversário da Ana dia 12 de março",
   "Me lembra de buscar as crianças às 17h",
   "Alarme daqui a 10 minutos",
+  "Lembrete de pagar o cartão todo mês dia 10",
+  "Fiz 40 minutos de caminhada, 3 km",
+  "Remédio amoxicilina 5 ml de 8 em 8 horas por 7 dias para o João",
+  "Quero ver o filme Ainda Estou Aqui na Globoplay",
 ];

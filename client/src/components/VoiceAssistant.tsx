@@ -21,7 +21,7 @@ import { supabase } from "@/lib/supabase";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { repeatLabel } from "@/lib/recurrence";
 import { useToast } from "@/hooks/use-toast";
-import { refresh, useCycles, useLists, useUserId } from "@/hooks/use-data";
+import { refresh, useChildren, useCycles, useLists, useUserId } from "@/hooks/use-data";
 import { listen, speak, speechRecognitionSupported } from "@/lib/speech";
 import { parseShoppingItems, parseVoiceCommand, splitQuantity, VOICE_EXAMPLES, type VoiceCommand } from "@/lib/voice-parser";
 import { CATEGORIES, MONTH_NAMES, REMINDER_OPTIONS, reminderLabel } from "@/lib/options";
@@ -30,8 +30,18 @@ import {
   createActivity,
   createBirthday,
   endCycle,
+  saveMedication,
+  saveReminder,
+  saveWatchItem,
+  saveWorkout,
   startCycle,
+  type WatchStatus,
 } from "@/lib/data";
+import { PRESETS, REPEATS, type Repeat } from "@/lib/lembretes";
+import { SPORTS, sportOf } from "@/lib/workouts";
+import { timesEvery } from "@/lib/meds";
+import { Stars } from "@/components/WatchlistView";
+import { addDays as addDaysFn } from "date-fns";
 
 type Stage = "listening" | "typing" | "confirm";
 
@@ -47,7 +57,7 @@ interface VoiceAssistantProps {
 
 // Formulário editável que a pessoa confere antes de salvar.
 interface Draft {
-  kind: "activity" | "shopping" | "birthday" | "period_start" | "period_end";
+  kind: "activity" | "shopping" | "birthday" | "period_start" | "period_end" | "reminder" | "workout" | "medication" | "movie";
   title: string;
   address: string;
   phone: string;
@@ -62,6 +72,24 @@ interface Draft {
   gift: string;
   day: number;
   month: number;
+  // lembrete
+  emoji?: string;
+  repeat: Repeat;
+  // exercício
+  sport: string;
+  minutes: string;
+  distance: string;
+  // remédio
+  dose: string;
+  everyHours: string;
+  medDays: string;
+  childId: string;
+  forName?: string;
+  // filme ou série
+  movieKind: "filme" | "serie";
+  status: WatchStatus;
+  rating?: number;
+  where: string;
 }
 
 function emptyDraft(): Draft {
@@ -82,6 +110,17 @@ function emptyDraft(): Draft {
     gift: "",
     day: now.getDate(),
     month: now.getMonth() + 1,
+    repeat: "nao",
+    sport: "Caminhada",
+    minutes: "",
+    distance: "",
+    dose: "",
+    everyHours: "8",
+    medDays: "",
+    childId: "",
+    movieKind: "filme",
+    status: "quero",
+    where: "",
   };
 }
 
@@ -109,6 +148,30 @@ function draftFrom(cmd: VoiceCommand, heard: string): Draft {
     case "period_start":
     case "period_end":
       return { ...d, kind: cmd.kind, date: format(cmd.date, "yyyy-MM-dd") };
+    case "reminder":
+      return { ...d, kind: "reminder", title: cmd.title, emoji: cmd.emoji, date: format(cmd.date, "yyyy-MM-dd"), time: cmd.time ?? "09:00", repeat: cmd.repeat };
+    case "workout":
+      return {
+        ...d,
+        kind: "workout",
+        sport: cmd.activity,
+        date: format(cmd.date, "yyyy-MM-dd"),
+        minutes: cmd.minutes ? String(cmd.minutes) : "",
+        distance: cmd.distanceKm != null ? String(cmd.distanceKm).replace(".", ",") : "",
+      };
+    case "medication":
+      return {
+        ...d,
+        kind: "medication",
+        title: cmd.name,
+        dose: cmd.dose ?? "",
+        everyHours: cmd.everyHours ? String(cmd.everyHours) : "24",
+        time: cmd.firstTime ?? "08:00",
+        medDays: cmd.days ? String(cmd.days) : "",
+        forName: cmd.forName,
+      };
+    case "movie":
+      return { ...d, kind: "movie", title: cmd.title, movieKind: cmd.movieKind, status: cmd.status, rating: cmd.rating, where: cmd.where ?? "" };
     default:
       // Não entendeu: sugere como atividade, com o texto ouvido como título.
       return { ...d, kind: "activity", title: heard };
@@ -125,6 +188,14 @@ function confirmTitle(kind: Draft["kind"]): string {
     case "period_start":
     case "period_end":
       return "Vou registrar no seu ciclo:";
+    case "reminder":
+      return "Vou criar este lembrete:";
+    case "workout":
+      return "Vou registrar seu exercício:";
+    case "medication":
+      return "Vou cadastrar este remédio:";
+    case "movie":
+      return "Vou anotar na sua lista:";
     default:
       return "Vou agendar assim. Confere?";
   }
@@ -141,6 +212,7 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
   const { toast } = useToast();
   const userId = useUserId();
   const { data: cycles = [] } = useCycles();
+  const { data: children = [] } = useChildren();
 
   const [stage, setStage] = useState<Stage>("listening");
   const [heard, setHeard] = useState("");
@@ -164,7 +236,13 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
     }
     setHeard(text);
     setUnderstood(cmd.kind !== "unknown");
-    setDraft(draftFrom(cmd, text));
+    const d = draftFrom(cmd, text);
+    // "para o João": liga o remédio ao perfil do filho com esse nome
+    if (d.kind === "medication" && d.forName) {
+      const n = d.forName.toLowerCase();
+      d.childId = children.find((c) => c.name.toLowerCase().split(" ")[0] === n)?.id ?? "";
+    }
+    setDraft(d);
     setStage("confirm");
   };
 
@@ -249,6 +327,58 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
         });
         refresh(userId, "birthdays");
         spoken = `Aniversário de ${draft.name} salvo: ${draft.day} de ${MONTH_NAMES[draft.month - 1]}.`;
+      } else if (draft.kind === "reminder") {
+        if (!draft.title.trim()) throw new Error("Diga o que é o lembrete.");
+        await saveReminder({
+          text: draft.title,
+          emoji: draft.emoji ?? PRESETS.find((p) => p.title.toLowerCase() === draft.title.trim().toLowerCase())?.emoji,
+          dueDate: draft.date,
+          dueTime: draft.time || "09:00",
+          repeat: draft.repeat,
+          alert: true,
+        });
+        refresh(userId, "reminders");
+        const rep = draft.repeat !== "nao" ? `, ${REPEATS.find((r) => r.value === draft.repeat)?.label.toLowerCase()}` : "";
+        spoken = `Lembrete criado: ${draft.title}, ${format(parseDay(draft.date), "d 'de' MMMM", { locale: ptBR })}${rep}.`;
+      } else if (draft.kind === "workout") {
+        const minutes = draft.minutes ? Math.round(Number(draft.minutes)) : undefined;
+        const dist = draft.distance ? Number(draft.distance.replace(",", ".")) : undefined;
+        await saveWorkout({
+          activity: draft.sport,
+          day: draft.date,
+          minutes,
+          distanceKm: sportOf(draft.sport).distance && dist != null && !Number.isNaN(dist) ? dist : undefined,
+        });
+        refresh(userId, "workouts");
+        spoken = `${draft.sport} registrada${minutes ? `: ${minutes} minutos` : ""}. Muito bem!`;
+      } else if (draft.kind === "medication") {
+        if (!draft.title.trim()) throw new Error("Diga o nome do remédio.");
+        const every = Number(draft.everyHours) || 24;
+        const days = Number(draft.medDays) || 0;
+        const start = format(new Date(), "yyyy-MM-dd");
+        await saveMedication({
+          name: draft.title,
+          dose: draft.dose || undefined,
+          times: timesEvery(draft.time || "08:00", every),
+          startDate: start,
+          endDate: days ? format(addDaysFn(new Date(), days - 1), "yyyy-MM-dd") : undefined,
+          reminder: true,
+          childId: draft.childId || undefined,
+        });
+        refresh(userId, "medications");
+        spoken = `Remédio ${draft.title} cadastrado, ${every === 24 ? "uma vez por dia" : `de ${every} em ${every} horas`}, a partir das ${draft.time}.`;
+      } else if (draft.kind === "movie") {
+        if (!draft.title.trim()) throw new Error("Diga o nome do filme ou série.");
+        await saveWatchItem({
+          title: draft.title,
+          kind: draft.movieKind,
+          where: draft.where || undefined,
+          status: draft.status,
+          rating: draft.status === "assisti" ? draft.rating : undefined,
+          watchedAt: draft.status === "assisti" ? format(new Date(), "yyyy-MM-dd") : undefined,
+        });
+        refresh(userId, "watchlist");
+        spoken = `${draft.title} ${draft.status === "assisti" ? "foi para os já vistos" : "está na sua lista"}.`;
       } else if (draft.kind === "period_start") {
         await startCycle(parseDay(draft.date));
         refresh(userId, "cycles");
@@ -353,7 +483,7 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
         {stage === "confirm" && (
           <>
             <KindHeader
-              kind={isPeriod ? "period" : (draft.kind as "activity" | "shopping" | "birthday")}
+              kind={isPeriod ? "period" : (draft.kind as Exclude<Draft["kind"], "period_start" | "period_end">)}
               title={understood ? (draft.kind === "shopping" && listName ? `Vou colocar na lista "${listName}":` : confirmTitle(draft.kind)) : "Não entendi tudo. Confere pra mim?"}
               heard={heard}
             />
@@ -480,6 +610,140 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
                     <Input id="va-gift" value={draft.gift} onChange={(e) => set({ gift: e.target.value })} placeholder="Ex.: perfume, livro" />
                   </div>
                   <p className="text-xs text-muted-foreground">Você recebe um alerta no dia, às 9h.</p>
+                </>
+              )}
+
+              {draft.kind === "reminder" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="va-rtext">Lembrete</Label>
+                    <Input id="va-rtext" value={draft.title} onChange={(e) => set({ title: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-rdate">Quando</Label>
+                      <Input id="va-rdate" type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-rtime">Hora do aviso</Label>
+                      <Input id="va-rtime" type="time" value={draft.time} onChange={(e) => set({ time: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="va-repeat">Repetir</Label>
+                    <NativeSelect id="va-repeat" value={draft.repeat} onChange={(e) => set({ repeat: e.target.value as Repeat })}>
+                      {REPEATS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                </>
+              )}
+
+              {draft.kind === "workout" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="va-sport">Atividade</Label>
+                    <NativeSelect id="va-sport" value={draft.sport} onChange={(e) => set({ sport: e.target.value })}>
+                      {SPORTS.map((sp) => (
+                        <option key={sp.name} value={sp.name}>{sp.emoji} {sp.name}</option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-wday">Quando</Label>
+                      <Input id="va-wday" type="date" max={format(new Date(), "yyyy-MM-dd")} value={draft.date} onChange={(e) => set({ date: e.target.value })} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-wmin">Minutos</Label>
+                      <Input id="va-wmin" inputMode="numeric" value={draft.minutes} onChange={(e) => set({ minutes: e.target.value.replace(/\D/g, "") })} placeholder="Ex.: 40" />
+                    </div>
+                  </div>
+                  {sportOf(draft.sport).distance === "km" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-wdist">Distância (km)</Label>
+                      <Input id="va-wdist" inputMode="decimal" value={draft.distance} onChange={(e) => set({ distance: e.target.value.replace(/[^\d,.]/g, "") })} placeholder="Ex.: 3,5" />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {draft.kind === "medication" && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-mname">Remédio</Label>
+                      <Input id="va-mname" value={draft.title} onChange={(e) => set({ title: e.target.value })} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-mdose">Dose</Label>
+                      <Input id="va-mdose" value={draft.dose} onChange={(e) => set({ dose: e.target.value })} placeholder="Ex.: 5 ml" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-mevery">A cada (horas)</Label>
+                      <NativeSelect id="va-mevery" value={draft.everyHours} onChange={(e) => set({ everyHours: e.target.value })}>
+                        {["4", "6", "8", "12", "24"].map((h) => (
+                          <option key={h} value={h}>{h === "24" ? "1 vez ao dia" : `${h} em ${h} horas`}</option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-mfirst">Primeira dose</Label>
+                      <Input id="va-mfirst" type="time" value={draft.time} onChange={(e) => set({ time: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-mdays">Por quantos dias</Label>
+                      <Input id="va-mdays" inputMode="numeric" value={draft.medDays} onChange={(e) => set({ medDays: e.target.value.replace(/\D/g, "") })} placeholder="Vazio = contínuo" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="va-mwho">Para quem</Label>
+                      <NativeSelect id="va-mwho" value={draft.childId} onChange={(e) => set({ childId: e.target.value })}>
+                        <option value="">Para mim</option>
+                        {children.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Doses: {timesEvery(draft.time || "08:00", Number(draft.everyHours) || 24).join(", ")}</p>
+                </>
+              )}
+
+              {draft.kind === "movie" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="va-mtitle">Título</Label>
+                    <Input id="va-mtitle" value={draft.title} onChange={(e) => set({ title: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["filme", "serie"] as const).map((k) => (
+                      <Button key={k} type="button" size="sm" variant={draft.movieKind === k ? "default" : "outline"} onClick={() => set({ movieKind: k })}>
+                        {k === "filme" ? "Filme" : "Série"}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {([["quero", "Quero ver"], ["assistindo", "Assistindo"], ["assisti", "Já vi"]] as const).map(([v, l]) => (
+                      <Button key={v} type="button" size="sm" variant={draft.status === v ? "default" : "outline"} onClick={() => set({ status: v })}>
+                        {l}
+                      </Button>
+                    ))}
+                  </div>
+                  {draft.status === "assisti" && (
+                    <div className="space-y-1.5">
+                      <Label>Sua nota</Label>
+                      <Stars value={draft.rating} onChange={(v) => set({ rating: v })} size="h-7 w-7" />
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="va-mwhere">Onde assistir</Label>
+                    <Input id="va-mwhere" value={draft.where} onChange={(e) => set({ where: e.target.value })} placeholder="Netflix, cinema..." />
+                  </div>
                 </>
               )}
 
