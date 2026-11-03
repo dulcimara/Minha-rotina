@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BellRing, Check, Copy, Download, Maximize2, Mic, MoreVertical, PlusSquare, Share, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { bannerDismissed, dismissBanner, promptInstall, useInstall } from "@/lib/install";
+import { dismissBanner, promptInstall, shouldShowBanner, useInstall } from "@/lib/install";
 import { cn } from "@/lib/utils";
 
 const BENEFITS = [
@@ -229,10 +229,10 @@ export function InstallDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   );
 }
 
-/** Convite na tela inicial. Some quando o app já está instalado; se fechar, volta em 7 dias. */
+/** Convite na tela inicial: só no primeiro uso; some ao instalar, tocar em Instalar ou fechar. */
 export function InstallBanner() {
   const { installed, canPrompt } = useInstall();
-  const [hidden, setHidden] = useState(bannerDismissed());
+  const [hidden, setHidden] = useState(() => !shouldShowBanner());
   const [open, setOpen] = useState(false);
   if (installed || hidden) return null;
 
@@ -249,9 +249,14 @@ export function InstallBanner() {
           className="shrink-0"
           data-testid="button-install-banner"
           onClick={async () => {
+            // Tocou em instalar: o convite não volta mais (fica em Configurações).
+            dismissBanner();
             // Onde o navegador permite, já abre a instalação direto.
-            if (canPrompt && (await promptInstall())) return;
-            if (!canPrompt) setOpen(true);
+            if (canPrompt) {
+              if (await promptInstall()) setHidden(true);
+              return;
+            }
+            setOpen(true);
           }}
         >
           Instalar
@@ -268,7 +273,13 @@ export function InstallBanner() {
           <X className="h-4 w-4" />
         </button>
       </Card>
-      <InstallDialog open={open} onOpenChange={setOpen} />
+      <InstallDialog
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) setHidden(true);
+        }}
+      />
     </>
   );
 }

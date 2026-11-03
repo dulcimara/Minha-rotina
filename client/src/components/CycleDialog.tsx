@@ -70,7 +70,7 @@ export function CycleDialog({ open, onOpenChange, cycle }: CycleDialogProps) {
           description="Esqueceu de registrar na hora? Informe quando começou e, se já acabou, quando terminou."
         />
 
-        <div className="grid grid-cols-2 gap-3 py-1">
+        <div className="grid grid-cols-1 gap-3 py-1 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="cycle-start">Começou em *</Label>
             <Input id="cycle-start" type="date" max={today} value={start} onChange={(e) => setStart(e.target.value)} />
