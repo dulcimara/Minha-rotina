@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/NativeSelect";
-import { ArrowLeft, Check, Pencil, Plus, Repeat as RepeatIcon, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Plus, Repeat as RepeatIcon, RotateCcw, Trash2, Users } from "lucide-react";
 import { AppIcon } from "@/components/AppIcons";
 import { ReminderGlyph } from "@/components/ReminderGlyph";
+import { ShareDialog, SharedBadge } from "@/components/ShareDialog";
+import { useShareAccess } from "@/lib/sharing";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useReminders, useUserId } from "@/hooks/use-data";
 import { completeReminder, deleteReminder, reopenReminder, saveReminder, type Reminder } from "@/lib/data";
@@ -51,7 +53,7 @@ export function useCompleteReminder() {
   };
 }
 
-function ReminderForm({ initial, onDone }: { initial?: Reminder; onDone: () => void }) {
+function ReminderForm({ initial, onDone, onShare }: { initial?: Reminder; onDone: () => void; onShare?: () => void }) {
   const { toast } = useToast();
   const userId = useUserId();
   const [text, setText] = useState(initial?.text ?? "");
@@ -160,13 +162,21 @@ function ReminderForm({ initial, onDone }: { initial?: Reminder; onDone: () => v
       <Button type="submit" className="w-full" disabled={!text.trim() || saving} data-testid="button-reminder-save">
         {initial ? "Salvar alterações" : "Criar lembrete"}
       </Button>
+      {onShare && (
+        <Button type="button" variant="outline" className="w-full gap-2" onClick={onShare} data-testid="button-reminder-share-one">
+          <Users className="h-4 w-4" /> Compartilhar este lembrete
+        </Button>
+      )}
     </form>
   );
 }
 
-function Row({ r, onEdit }: { r: Reminder; onEdit: () => void }) {
+function Row({ r, onEdit, onShare }: { r: Reminder; onEdit: () => void; onShare: () => void }) {
   const userId = useUserId();
   const complete = useCompleteReminder();
+  const access = useShareAccess();
+  const by = access.sharedBy(r.ownerId);
+  const editable = access.canEdit(r.ownerId, "lembretes", r.id);
   const late = dueState(r.dueDate) === "atrasado";
   const done = Boolean(r.doneAt);
   return (
@@ -174,6 +184,7 @@ function Row({ r, onEdit }: { r: Reminder; onEdit: () => void }) {
       <button
         type="button"
         onClick={() => (done ? reopenReminder(r.id).then(() => refresh(userId, "reminders")) : complete(r))}
+        disabled={!editable}
         className={cn(
           "h-7 w-7 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors",
           done ? "border-primary bg-primary text-primary-foreground" : "border-primary/50 hover:bg-primary/10",
@@ -196,13 +207,15 @@ function Row({ r, onEdit }: { r: Reminder; onEdit: () => void }) {
           )}
           {r.notes && <span className="text-muted-foreground font-normal"> · {r.notes}</span>}
         </p>
+        {by && <SharedBadge name={by} readOnly={!editable} className="mt-0.5" />}
       </div>
-      {!done && (
+      {editable && !done && (
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} title="Editar">
           <Pencil className="h-4 w-4" />
           <span className="sr-only">Editar</span>
         </Button>
       )}
+      {editable && (
       <Button
         variant="ghost"
         size="icon"
@@ -217,6 +230,7 @@ function Row({ r, onEdit }: { r: Reminder; onEdit: () => void }) {
         <Trash2 className="h-4 w-4" />
         <span className="sr-only">Apagar</span>
       </Button>
+      )}
     </div>
   );
 }
@@ -233,6 +247,9 @@ export function RemindersDialog({
 }) {
   const { data: all = [] } = useReminders();
   const [editing, setEditing] = useState<{ key: number; item?: Reminder } | null>(startNew ? { key: 0 } : null);
+  const [share, setShare] = useState<{ open: boolean; key: number; item?: Reminder }>({ open: false, key: 0 });
+  const openShare = (item?: Reminder) => setShare((x) => ({ open: true, key: x.key + 1, item }));
+  const access = useShareAccess();
   const pending = all.filter((r) => !r.doneAt).sort(byDue);
   const done = all.filter((r) => r.doneAt).sort((a, b) => b.doneAt!.getTime() - a.doneAt!.getTime());
   const late = pending.filter((r) => dueState(r.dueDate) === "atrasado").length;
@@ -268,19 +285,29 @@ export function RemindersDialog({
             <Button variant="ghost" size="sm" className="-mt-1 w-fit gap-1 px-2" onClick={() => setEditing(null)}>
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Button>
-            <ReminderForm key={editing.key} initial={editing.item} onDone={() => setEditing(null)} />
+            <ReminderForm
+              key={editing.key}
+              initial={editing.item}
+              onDone={() => setEditing(null)}
+              onShare={editing.item && !access.sharedBy(editing.item.ownerId) ? () => openShare(editing.item) : undefined}
+            />
           </>
         ) : (
           <div className="space-y-4">
-            <Button className="w-full gap-2" onClick={() => setEditing({ key: Date.now() })} data-testid="button-reminder-add">
-              <Plus className="h-4 w-4" /> Novo lembrete
-            </Button>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Button className="gap-2" onClick={() => setEditing({ key: Date.now() })} data-testid="button-reminder-add">
+                <Plus className="h-4 w-4" /> Novo lembrete
+              </Button>
+              <Button variant="outline" className="gap-1.5" onClick={() => openShare()} data-testid="button-reminders-share">
+                <Users className="h-4 w-4" /> Compartilhar
+              </Button>
+            </div>
             {pending.length === 0 ? (
               <p className="rounded-xl bg-muted/60 p-4 text-center text-sm text-muted-foreground">Nenhum lembrete pendente. 🎉</p>
             ) : (
               <div className="divide-y">
                 {pending.map((r) => (
-                  <Row key={r.id} r={r} onEdit={() => setEditing({ key: Date.now(), item: r })} />
+                  <Row key={r.id} r={r} onEdit={() => setEditing({ key: Date.now(), item: r })} onShare={() => openShare(r)} />
                 ))}
               </div>
             )}
@@ -289,13 +316,21 @@ export function RemindersDialog({
                 <summary className="cursor-pointer py-2.5 text-sm font-semibold text-muted-foreground">Feitos nos últimos 30 dias ({done.length})</summary>
                 <div className="divide-y">
                   {done.map((r) => (
-                    <Row key={r.id} r={r} onEdit={() => undefined} />
+                    <Row key={r.id} r={r} onEdit={() => undefined} onShare={() => openShare(r)} />
                   ))}
                 </div>
               </details>
             )}
           </div>
         )}
+        <ShareDialog
+          key={`sh-${share.key}`}
+          open={share.open}
+          onOpenChange={(o) => setShare((x) => ({ ...x, open: o }))}
+          area="lembretes"
+          itemKey={share.item?.id}
+          itemLabel={share.item?.text}
+        />
       </DialogContent>
     </Dialog>
   );

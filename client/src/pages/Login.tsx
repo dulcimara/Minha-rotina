@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { validBirthDate } from "@/lib/calories";
+import { DateInputBR } from "@/components/DateInputBR";
 
 type Mode = "entrar" | "cadastrar";
 
@@ -113,17 +114,7 @@ export default function Login() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="birth">Data de nascimento *</Label>
-                <Input
-                  id="birth"
-                  type="date"
-                  value={birthDate}
-                  max={new Date().toISOString().slice(0, 10)}
-                  min="1900-01-01"
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  autoComplete="bday"
-                  required
-                  data-testid="input-birth-date"
-                />
+                <DateInputBR id="birth" value={birthDate} onChange={setBirthDate} required data-testid="input-birth-date" />
                 <p className="text-xs text-muted-foreground">Usada para estimar as calorias que você precisa por dia.</p>
               </div>
             </>

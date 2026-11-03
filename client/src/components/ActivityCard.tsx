@@ -1,7 +1,10 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ShareDialog, SharedBadge } from "@/components/ShareDialog";
+import { useShareAccess } from "@/lib/sharing";
+import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pencil, Trash2, Clock, Bell, Volume2, MapPin, Phone, Repeat } from "lucide-react";
+import { Pencil, Trash2, Clock, Bell, Volume2, MapPin, Phone, Repeat, Users } from "lucide-react";
 import { repeatLabel } from "@/lib/recurrence";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -12,6 +15,7 @@ import { categoryLabel, reminderLabel } from "@/lib/options";
 
 interface ActivityCardProps {
   id: string;
+  ownerId?: string;
   title: string;
   description?: string;
   address?: string;
@@ -35,6 +39,7 @@ interface ActivityCardProps {
 
 export function ActivityCard({
   id,
+  ownerId,
   title,
   description,
   address,
@@ -57,6 +62,12 @@ export function ActivityCard({
 }: ActivityCardProps) {
   const { data: children = [] } = useChildren();
   const childName = children.find((c) => c.id === childId)?.name;
+  // compartilhado comigo? (repetições usam o id "id@dia")
+  const baseId = id.split("@")[0];
+  const access = useShareAccess();
+  const sharedBy = access.sharedBy(ownerId);
+  const editable = access.canEdit(ownerId, "agenda", baseId);
+  const [shareOpen, setShareOpen] = useState(0);
 
   return (
     <Card 
@@ -83,10 +94,12 @@ export function ActivityCard({
                 {categoryLabel(category)}
                 {childName ? ` · ${childName}` : ""}
               </span>
+              {sharedBy && <SharedBadge name={sharedBy} readOnly={!editable} className="mt-1" />}
             </h3>
             <Checkbox
               checked={completed}
               onCheckedChange={(checked) => onToggleComplete?.(id, !!checked)}
+              disabled={!editable}
               data-testid={`checkbox-activity-${id}`}
               aria-label={completed ? "Marcar como não feito" : "Marcar como feito"}
               className="mt-0.5 h-6 w-6 rounded-full shrink-0"
@@ -152,6 +165,14 @@ export function ActivityCard({
             )}
             
             <div className="flex items-center gap-1 ml-auto">
+              {!sharedBy && (
+                <Button variant="ghost" size="icon" onClick={() => setShareOpen((k) => k + 1)} className="h-8 w-8" title="Compartilhar">
+                  <Users className="h-4 w-4" />
+                  <span className="sr-only">Compartilhar</span>
+                </Button>
+              )}
+              {editable && (
+              <>
               <Button
                 variant="ghost"
                 size="icon"
@@ -172,10 +193,22 @@ export function ActivityCard({
                 <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Excluir</span>
               </Button>
+              </>
+              )}
             </div>
           </div>
         </div>
       </div>
+      {shareOpen > 0 && (
+        <ShareDialog
+          key={shareOpen}
+          open
+          onOpenChange={(o) => !o && setShareOpen(0)}
+          area="agenda"
+          itemKey={baseId}
+          itemLabel={title}
+        />
+      )}
     </Card>
   );
 }

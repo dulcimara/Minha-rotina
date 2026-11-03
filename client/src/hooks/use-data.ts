@@ -13,7 +13,7 @@ import {
   fetchMedications,
   fetchDoses,
   fetchCycleDays,
-  fetchWatchlist, fetchWorkouts,
+  fetchWatchlist, fetchWorkouts, fetchShares, fetchSharedLists,
 } from "@/lib/data";
 import { format, subDays } from "date-fns";
 
@@ -21,7 +21,10 @@ import { format, subDays } from "date-fns";
 export const keys = {
   activities: (u?: string) => ["activities", u],
   reminders: (u?: string) => ["reminders", u],
-  shopping: (u?: string, listId?: string) => (listId ? ["shopping", u, listId] : ["shopping", u]),
+  shopping: (u?: string, listId?: string, ownerId?: string) =>
+    ownerId ? ["shopping", u, listId ?? "compras", ownerId] : listId ? ["shopping", u, listId] : ["shopping", u],
+  shares: (u?: string) => ["shares", u],
+  sharedLists: (u?: string) => ["sharedLists", u],
   lists: (u?: string) => ["lists", u],
   trips: (u?: string) => ["trips", u],
   birthdays: (u?: string) => ["birthdays", u],
@@ -57,11 +60,11 @@ export function useReminders() {
 }
 
 /** Itens de uma lista. Sem listId = lista de compras. */
-export function useShopping(listId?: string) {
+export function useShopping(listId?: string, ownerId?: string) {
   const userId = useUserId();
   return useQuery({
-    queryKey: keys.shopping(userId, listId),
-    queryFn: () => fetchShoppingItems(listId),
+    queryKey: keys.shopping(userId, listId, ownerId),
+    queryFn: () => fetchShoppingItems(listId, ownerId),
     enabled: !!userId,
   });
 }
@@ -124,4 +127,14 @@ export function useWatchlist() {
 export function useWorkouts() {
   const userId = useUserId();
   return useQuery({ queryKey: keys.workouts(userId), queryFn: fetchWorkouts, enabled: !!userId });
+}
+
+export function useShares() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.shares(userId), queryFn: fetchShares, enabled: !!userId });
+}
+
+export function useSharedLists() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.sharedLists(userId), queryFn: fetchSharedLists, enabled: !!userId });
 }

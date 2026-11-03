@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   BookOpen,
+  Users,
   Flame,
   BellRing,
   Check,
@@ -37,6 +38,7 @@ import { speak } from "@/lib/speech";
 import { PalettePicker } from "@/components/PalettePicker";
 import { InstallDialog } from "@/components/InstallApp";
 import { BodyProfileForm } from "@/components/BodyProfileForm";
+import { SharingSettings } from "@/components/SharingSettings";
 import { useInstall } from "@/lib/install";
 import { cn } from "@/lib/utils";
 
@@ -80,6 +82,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [push, setPush] = useState<PushState>("off");
   const [busy, setBusy] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
+  const [paletteChanged, setPaletteChanged] = useState(false);
   const install = useInstall();
   const { data: activities = [] } = useActivities();
   const { data: birthdays = [] } = useBirthdays();
@@ -181,12 +184,28 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           )}
         </Section>
 
+        <Section icon={Users} title="Compartilhamento">
+          <SharingSettings />
+        </Section>
+
         <Section icon={Flame} title="Saúde e calorias">
           <BodyProfileForm />
         </Section>
 
         <Section icon={PaletteIcon} title="Cores do app">
-          <PalettePicker value={settings.palette} onChange={(palette) => save({ palette })} />
+          <PalettePicker
+            value={settings.palette}
+            onChange={(palette) => {
+              setPaletteChanged(true);
+              void save({ palette });
+            }}
+          />
+          {paletteChanged && (
+            <p className="rounded-xl bg-secondary/60 p-3 text-xs text-secondary-foreground" data-testid="palette-icon-hint">
+              O app já está com as cores novas. O ícone na tela do celular é guardado pelo próprio celular no dia em que o app foi
+              instalado: para ele mudar de cor, remova o ícone da tela e instale de novo (em Configurações → Instalar o app).
+            </p>
+          )}
         </Section>
 
         <Section icon={BookOpen} title="Versículo do dia">

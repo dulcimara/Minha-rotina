@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { DateInputBR } from "@/components/DateInputBR";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,15 +25,12 @@ export function BodyProfileForm({ compact }: { compact?: boolean }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="bp-birth">Nascimento</Label>
-          <Input
+          <DateInputBR
             id="bp-birth"
-            type="date"
-            min="1900-01-01"
-            max={new Date().toISOString().slice(0, 10)}
             value={birth}
-            onChange={(e) => setBirth(e.target.value)}
+            onChange={setBirth}
             onBlur={() => {
-              if (birth !== (p.birthDate ?? "") && (birth === "" || validBirthDate(birth))) void save({ birthDate: birth || undefined });
+              if (birth && birth !== (p.birthDate ?? "") && validBirthDate(birth)) void save({ birthDate: birth });
             }}
             data-testid="input-profile-birth"
           />

@@ -1,4 +1,5 @@
 import { AppIcon } from "@/components/AppIcons";
+import { DateInputBR } from "@/components/DateInputBR";
 import { useState, type FormEvent } from "react";
 import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -87,10 +88,11 @@ function ChildForm({ child, onDone }: { child?: Child; onDone: () => void }) {
   return (
     <form onSubmit={submit} className="space-y-4 rounded-xl bg-muted/40 p-3">
       {field("name", "Nome *", { autoFocus: true, placeholder: "Ex.: João" })}
-      {field("birthDate", "Data de nascimento", { type: "date" })}
-      <p className="text-xs font-semibold uppercase tracking-wide text-primary pt-1">Escola</p>
       <div className="grid grid-cols-2 gap-3">
-        {field("school", "Escola", { placeholder: "Nome da escola" })}
+        <div className="space-y-1.5">
+          <Label htmlFor="child-birthDate">Data de nascimento</Label>
+          <DateInputBR id="child-birthDate" value={c.birthDate} onChange={(iso) => setC({ ...c, birthDate: iso || undefined })} />
+        </div>
         {field("schoolGrade", "Série / turma", { placeholder: "Ex.: 2º ano B" })}
       </div>
       <p className="text-xs font-semibold uppercase tracking-wide text-primary pt-1">Saúde</p>
@@ -163,7 +165,7 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
         <div className="flex-1 min-w-0">
           <p className="font-semibold">{child.name}</p>
           <p className="text-xs text-muted-foreground">
-            {[age, child.school].filter(Boolean).join(" · ") || "Toque para ver os dados"}
+            {[age, child.schoolGrade].filter(Boolean).join(" · ") || "Toque para ver os dados"}
           </p>
         </div>
         {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -171,8 +173,8 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
 
       {open && (
         <div className="mt-3 space-y-2 border-t pt-3">
-          {child.birthDate && line(CalendarClock, `Nasceu em ${format(new Date(child.birthDate + "T12:00"), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`)}
-          {line(School, [child.school, child.schoolGrade].filter(Boolean).join(" — ") || undefined)}
+          {child.birthDate && line(CalendarClock, `Nasceu em ${format(new Date(child.birthDate + "T12:00"), "dd/MM/yyyy")}`)}
+          {line(School, child.schoolGrade ? `Turma: ${child.schoolGrade}` : undefined)}
           {line(Stethoscope, child.pediatrician)}
           {child.pediatricianPhone && line(Phone, child.pediatricianPhone, `tel:${child.pediatricianPhone.replace(/[^\d+]/g, "")}`)}
           {child.allergies && (
@@ -258,7 +260,7 @@ export function ChildrenDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Família</p>
             <DialogTitle className="text-lg font-display font-semibold">Meus filhos</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Escola, pediatra, alergias e tamanhos sempre à mão.
+              Turma, pediatra, alergias e tamanhos sempre à mão.
             </DialogDescription>
           </div>
         </div>
