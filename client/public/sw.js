@@ -24,8 +24,8 @@ self.addEventListener("push", (event) => {
       return self.registration.showNotification(data.title || "Minha Rotina", {
         body: data.body || "",
         tag: data.tag,
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
+        icon: data.icon || "/icon-192.png",
+        badge: data.icon || "/icon-192.png",
         silent: Boolean(data.silent) || appOnScreen,
         renotify: !appOnScreen,
         vibrate: data.silent ? undefined : [300, 150, 300],

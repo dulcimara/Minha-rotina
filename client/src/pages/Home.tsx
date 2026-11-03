@@ -1,3 +1,4 @@
+import { useAppIcon } from "@/lib/palettes";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ const NAV: { tab: TabName; label: string; icon: typeof HomeIcon }[] = [
 ];
 
 export default function Home() {
+  const appIcon = useAppIcon();
   const { toast } = useToast();
   const userId = useUserId();
   const { data: activities = [], isLoading } = useActivities();
@@ -150,7 +152,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
         <div className="container max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <h1 className="font-brand text-[1.35rem] text-foreground flex items-center gap-2" data-testid="text-app-title">
-            <img src="/icon-192.png" alt="" className="h-8 w-8 drop-shadow-[0_3px_6px_rgb(120_40_140/0.25)]" />
+            <img src={appIcon} alt="" className="h-8 w-8 drop-shadow-[0_3px_6px_rgb(0_0_0/0.15)]" />
             Minha Rotina
           </h1>
           <div className="flex items-center gap-1">
