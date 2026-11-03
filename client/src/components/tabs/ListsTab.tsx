@@ -1,5 +1,5 @@
 import { AppIcon } from "@/components/AppIcons";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
@@ -47,7 +47,7 @@ import {
   type CustomList,
   type ShoppingItem,
 } from "@/lib/data";
-import { CATALOG_ITEMS } from "@/lib/catalog";
+import { ItemAutocomplete } from "@/components/ItemAutocomplete";
 import { cn } from "@/lib/utils";
 
 interface ListsTabProps {
@@ -243,6 +243,8 @@ function ListItems({
   const userId = useUserId();
   const { data: items = [], isLoading } = useShopping(listId);
   const { data: trips = [] } = useTrips();
+  // O que a pessoa já comprou, do mais recente para o mais antigo (para o autocompletar)
+  const historyNames = useMemo(() => trips.flatMap((t) => t.items.map((i) => i.name)), [trips]);
   const [name, setName] = useState("");
   const [qty, setQty] = useState("");
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -331,13 +333,17 @@ function ListItems({
     <div className="space-y-4">
       <Card className="p-4 space-y-3">
         <form onSubmit={add} className="flex gap-2">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={isShopping ? "Item" : "Novo item"}
-            list={isShopping ? "catalogo-itens" : undefined}
-            data-testid="input-item"
-          />
+          {isShopping ? (
+            <ItemAutocomplete
+              value={name}
+              onChange={setName}
+              placeholder="Item"
+              history={historyNames}
+              inList={pending.map((i) => i.name)}
+            />
+          ) : (
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Novo item" data-testid="input-item" />
+          )}
           {isShopping && (
             <QuantityStepper value={qty} onChange={setQty} label="Quantidade" />
           )}
@@ -346,13 +352,6 @@ function ListItems({
             <span className="sr-only">Adicionar</span>
           </Button>
         </form>
-        {isShopping && (
-          <datalist id="catalogo-itens">
-            {CATALOG_ITEMS.map((i) => (
-              <option key={i} value={i} />
-            ))}
-          </datalist>
-        )}
         <div className="flex flex-wrap gap-2">
           {isShopping && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCatalogOpen(true)} data-testid="button-open-catalog">
