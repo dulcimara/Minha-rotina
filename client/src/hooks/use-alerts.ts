@@ -10,6 +10,7 @@ import { speak } from "@/lib/speech";
 import { nextBirthdayDate, type Activity, type Birthday } from "@/lib/data";
 import { alertSentence } from "@/lib/alert-text";
 import { occurrencesBetween } from "@/lib/recurrence";
+import { isMinor, vaccineDates } from "@/lib/vacinas";
 
 /**
  * Confere a cada 15 segundos se chegou a hora de algum aviso.
@@ -178,6 +179,27 @@ export function useAlerts() {
         subtitle: `Lembrete · ${r.dueTime || "09:00"}${r.notes ? ` · ${r.notes}` : ""}`,
         spoken: `${name ? `${name}, l` : "L"}embrete: ${r.text}.${r.notes ? ` ${r.notes}.` : ""}`,
       });
+    }
+
+    // Vacinas dos filhos menores de 18: uma semana antes de atingir a idade, às 9h
+    if (now.getHours() >= BIRTHDAY_HOUR) {
+      const todayKey = format(now, "yyyy-MM-dd");
+      for (const c of children) {
+        if (!c.birthDate || !isMinor(c.birthDate, now)) continue;
+        for (const v of vaccineDates(c.birthDate)) {
+          if (v.alertKey !== todayKey || v.months === 0) continue;
+          const key = `vac:${c.id}:${v.months}`;
+          if (fired.current.has(key)) continue;
+          due.push({
+            key,
+            title: `💉 Vacinas de ${c.name}`,
+            subtitle: `${v.label} em ${format(v.date, "dd/MM")} · ${v.vaccines.join(", ")}`,
+            spoken: `${name ? `${name}, ` : ""}daqui a uma semana ${c.name} completa ${v.label} e pode tomar: ${v.vaccines
+              .map((x) => x.replace(/\s*\(.*?\)/g, ""))
+              .join(", ")}. Leve a caderneta de vacinação ao posto de saúde.`,
+          });
+        }
+      }
     }
 
     for (const b of birthdays) {
