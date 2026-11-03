@@ -3,6 +3,7 @@ import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useActivities, useBirthdays } from "@/hooks/use-data";
 import { displayName, useAuth } from "@/hooks/use-auth";
+import { readSettings, type AlertMode } from "@/lib/settings";
 import { playChime, vibrate } from "@/lib/alarm-sound";
 import { speak } from "@/lib/speech";
 import { nextBirthdayDate, type Activity, type Birthday } from "@/lib/data";
@@ -107,16 +108,24 @@ export function useAlerts() {
   const { data: birthdays = [] } = useBirthdays();
   const { user } = useAuth();
   const name = displayName(user);
+  const settings = readSettings(user);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   const [queue, setQueue] = useState<AlertItem[]>([]);
   const fired = useRef<Set<string>>(loadFired());
   const snoozed = useRef<{ item: AlertItem; at: number }[]>([]);
 
   const trigger = useCallback((item: AlertItem) => {
     setQueue((q) => (q.some((i) => i.key === item.key) ? q : [...q, item]));
-    // Um toque curto e, logo em seguida, a voz.
-    playChime(1);
-    vibrate();
-    setTimeout(() => speak(item.spoken, item.gender), 900);
+    // Conforme a configuração da conta: toque + voz, só som, ou silencioso.
+    const { alertMode, voiceGender, vibrate: shouldVibrate } = settingsRef.current;
+    if (alertMode === "voice") {
+      playChime(1);
+      setTimeout(() => speak(item.spoken, item.gender ?? voiceGender), 900);
+    } else if (alertMode === "sound") {
+      playChime(3);
+    }
+    if (shouldVibrate) vibrate();
     void systemNotification(item);
   }, []);
 
@@ -180,8 +189,8 @@ export function notificationsStatus(): "granted" | "denied" | "default" | "unsup
   return Notification.permission;
 }
 
-export async function enableAlerts(): Promise<string> {
-  playChime(1);
+/** Pede permissão para notificações neste aparelho. */
+export async function requestNotifications(): Promise<string> {
   let status = notificationsStatus();
   if (status === "default") {
     try {
@@ -190,19 +199,18 @@ export async function enableAlerts(): Promise<string> {
       // Safari antigo
     }
   }
-  try {
-    localStorage.setItem("minha-rotina:alertas-ativados", "1");
-  } catch {
-    // ignora
-  }
-  speak("Pronto! Os alertas estão ativados.");
   return status;
 }
 
-export function alertsWereEnabled(): boolean {
-  try {
-    return localStorage.getItem("minha-rotina:alertas-ativados") === "1";
-  } catch {
-    return false;
+/** Toca um exemplo do aviso, do jeito escolhido. */
+export function testAlert(mode: AlertMode, gender: "female" | "male", name?: string) {
+  if (mode === "voice") {
+    playChime(1);
+    setTimeout(
+      () => speak(`${name ? `${name}, d` : "D"}entro de 10 minutos você tem consulta médica, no endereço Rua das Flores, 123.`, gender),
+      900,
+    );
+  } else if (mode === "sound") {
+    playChime(3);
   }
 }

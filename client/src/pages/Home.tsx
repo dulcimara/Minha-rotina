@@ -10,9 +10,9 @@ import { TodayTab } from "@/components/tabs/TodayTab";
 import { AgendaTab } from "@/components/tabs/AgendaTab";
 import { ListsTab } from "@/components/tabs/ListsTab";
 import { CycleTab } from "@/components/tabs/CycleTab";
-import { CalendarDays, Droplet, Home as HomeIcon, ListChecks, LogOut, Mic, Plus } from "lucide-react";
+import { CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, Plus, Settings } from "lucide-react";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import { keys, refresh, useActivities, useUserId } from "@/hooks/use-data";
 import { useAlerts } from "@/hooks/use-alerts";
 import { queryClient } from "@/lib/queryClient";
@@ -37,13 +37,13 @@ const NAV: { tab: TabName; label: string; icon: typeof HomeIcon }[] = [
 ];
 
 export default function Home() {
-  const { signOut } = useAuth();
   const { toast } = useToast();
   const userId = useUserId();
   const { data: activities = [], isLoading } = useActivities();
   const alerts = useAlerts();
 
   const [tab, setTab] = useState<TabName>("hoje");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   /** lista aberta na aba Listas (vazio = lista de compras) */
   const [listId, setListId] = useState<string | undefined>();
   const [voice, setVoice] = useState<{ open: boolean; mode: "voice" | "type"; context?: "shopping" }>({
@@ -145,9 +145,9 @@ export default function Home() {
               <span className="sr-only">Novo compromisso</span>
             </Button>
             <ThemeToggle />
-            <Button variant="ghost" size="icon" onClick={() => signOut()} data-testid="button-logout" title="Sair">
-              <LogOut className="h-5 w-5" />
-              <span className="sr-only">Sair</span>
+            <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} data-testid="button-settings" title="Configurações">
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Configurações</span>
             </Button>
           </div>
         </div>
@@ -159,7 +159,6 @@ export default function Home() {
             activities={activities}
             loading={isLoading}
             onAdd={() => openNew()}
-            onVoice={openVoice}
             onNavigate={setTab}
             cardHandlers={cardHandlers}
           />
@@ -216,6 +215,8 @@ export default function Home() {
       />
 
       {/* espera o alerta (se houver) ser fechado, para não abrir uma janela sobre a outra */}
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
       <MonthlyShoppingPrompt paused={!!alerts.current} />
 
       <AlertModal alert={alerts.current} onDismiss={alerts.dismiss} onSnooze={() => alerts.snooze(5)} />

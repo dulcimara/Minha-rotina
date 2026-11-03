@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pencil, Trash2, Clock, Bell, Volume2, MapPin, Phone, Repeat } from "lucide-react";
@@ -7,6 +6,7 @@ import { repeatLabel } from "@/lib/recurrence";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { CategoryArt } from "@/components/CategoryArt";
 import { categoryLabel, reminderLabel } from "@/lib/options";
 
 interface ActivityCardProps {
@@ -30,17 +30,6 @@ interface ActivityCardProps {
   onDelete?: (id: string) => void;
   onToggleComplete?: (id: string, completed: boolean) => void;
 }
-
-const categoryColors: Record<string, string> = {
-  saude: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  trabalho: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  casa: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  lazer: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  autocuidado: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
-  fitness: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-  familia: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  outros: "bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300",
-};
 
 export function ActivityCard({
   id,
@@ -72,12 +61,7 @@ export function ActivityCard({
       data-testid={`card-activity-${id}`}
     >
       <div className="flex items-start gap-3">
-        <Checkbox
-          checked={completed}
-          onCheckedChange={(checked) => onToggleComplete?.(id, !!checked)}
-          data-testid={`checkbox-activity-${id}`}
-          className="mt-1"
-        />
+        <CategoryArt category={category} className={cn(completed && "grayscale")} />
         
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
@@ -89,14 +73,15 @@ export function ActivityCard({
               data-testid={`text-activity-title-${id}`}
             >
               {title}
+              <span className="block text-xs font-normal text-muted-foreground">{categoryLabel(category)}</span>
             </h3>
-            <Badge 
-              variant="secondary" 
-              className={cn("text-xs shrink-0", categoryColors[category.toLowerCase()] || "")}
-              data-testid={`badge-category-${id}`}
-            >
-              {categoryLabel(category)}
-            </Badge>
+            <Checkbox
+              checked={completed}
+              onCheckedChange={(checked) => onToggleComplete?.(id, !!checked)}
+              data-testid={`checkbox-activity-${id}`}
+              aria-label={completed ? "Marcar como não feito" : "Marcar como feito"}
+              className="mt-0.5 h-6 w-6 rounded-full shrink-0"
+            />
           </div>
           
           {description && (

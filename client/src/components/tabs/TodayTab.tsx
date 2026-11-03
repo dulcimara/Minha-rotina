@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { addDays, format, isAfter, isBefore, isToday, startOfDay, differenceInCalendarDays } from "date-fns";
+import { addDays, format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { upperFirst } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -8,59 +8,25 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { ActivityCard } from "@/components/ActivityCard";
 import { EmptyState } from "@/components/EmptyState";
-import { BellRing, CalendarX, Cake, Droplet, Keyboard, Mic, Pencil, ShoppingCart, Sparkles } from "lucide-react";
+import { CalendarX, Cake, Droplet, ShoppingCart, Sparkles } from "lucide-react";
 import { displayName, useAuth } from "@/hooks/use-auth";
 import { useBirthdays, useCycles, useShopping } from "@/hooks/use-data";
-import { alertsWereEnabled, enableAlerts, notificationsStatus } from "@/hooks/use-alerts";
-import { nextBirthdayDate, type Activity } from "@/lib/data";
+import type { Activity } from "@/lib/data";
 import { summarizeCycles } from "@/lib/cycle";
 import { BirthdaysDialog } from "@/components/BirthdaysDialog";
 import { occurrencesBetween } from "@/lib/recurrence";
-import { VOICE_EXAMPLES } from "@/lib/voice-parser";
 import type { TabName } from "@/pages/Home";
 
 interface TodayTabProps {
   activities: Activity[];
   loading: boolean;
   onAdd: () => void;
-  onVoice: (mode: "voice" | "type") => void;
   onNavigate: (tab: TabName) => void;
   cardHandlers: {
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
     onToggleComplete: (id: string, completed: boolean) => void;
   };
-}
-
-function AlertsBanner() {
-  const [enabled, setEnabled] = useState(alertsWereEnabled() && notificationsStatus() !== "default");
-  if (enabled) return null;
-  const blocked = notificationsStatus() === "denied";
-  return (
-    <Card className="p-4 border-accent/40 bg-accent/10">
-      <div className="flex items-start gap-3">
-        <BellRing className="h-6 w-6 text-accent shrink-0 mt-0.5" />
-        <div className="flex-1 space-y-2">
-          <p className="text-sm font-medium">Ative os alertas com som</p>
-          <p className="text-xs text-muted-foreground">
-            {blocked
-              ? "As notificações estão bloqueadas neste navegador, mas o som funciona com o app aberto. Para liberar, vá nas configurações do site."
-              : "Assim o app toca e avisa na hora dos seus compromissos (com o app aberto ou em segundo plano)."}
-          </p>
-          <Button
-            size="sm"
-            onClick={async () => {
-              await enableAlerts();
-              setEnabled(true);
-            }}
-            data-testid="button-enable-alerts"
-          >
-            Ativar alertas
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
 }
 
 /** Nome e apelido (para os alertas falarem "Cida, dentro de 10 minutos..."). */
@@ -111,14 +77,13 @@ async function sendCongrats(name: string) {
   }
 }
 
-export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, cardHandlers }: TodayTabProps) {
+export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers }: TodayTabProps) {
   const { user } = useAuth();
   const { data: shopping = [] } = useShopping();
   const { data: birthdays = [] } = useBirthdays();
   const { data: cycles = [] } = useCycles();
 
   const firstName = displayName(user);
-  const [editingName, setEditingName] = useState(false);
   const [birthdaysOpen, setBirthdaysOpen] = useState(false);
   const today = startOfDay(new Date());
   const todayActivities = occurrencesBetween(activities, today, today);
@@ -131,10 +96,7 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
 
   const pendingShopping = shopping.filter((i) => !i.checked).length;
   const todayBirthdays = birthdays.filter((b) => b.day === today.getDate() && b.month === today.getMonth() + 1);
-  const nextBirthday = [...birthdays].sort(
-    (a, b) => nextBirthdayDate(a).getTime() - nextBirthdayDate(b).getTime(),
-  )[0];
-  const daysToBirthday = nextBirthday ? differenceInCalendarDays(nextBirthdayDate(nextBirthday), today) : undefined;
+  const monthBirthdays = birthdays.filter((b) => b.month === today.getMonth() + 1).length;
   const cycle = summarizeCycles(cycles);
 
   const greeting = new Date().getHours() < 12 ? "Bom dia" : new Date().getHours() < 18 ? "Boa tarde" : "Boa noite";
@@ -147,17 +109,6 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
           <div>
             <h2 className="text-xl font-display font-semibold" data-testid="text-today-title">
               {greeting}{firstName ? `, ${firstName}` : ""}!
-              {firstName && (
-                <button
-                  type="button"
-                  onClick={() => setEditingName(true)}
-                  className="ml-2 align-middle text-muted-foreground hover:text-primary"
-                  title="Alterar como o app te chama"
-                >
-                  <Pencil className="inline h-3.5 w-3.5" />
-                  <span className="sr-only">Alterar nome</span>
-                </button>
-              )}
             </h2>
             <p className="text-sm text-muted-foreground">
               {upperFirst(format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR }))} ·{" "}
@@ -165,60 +116,41 @@ export function TodayTab({ activities, loading, onAdd, onVoice, onNavigate, card
             </p>
           </div>
         </div>
-
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          <button
-            onClick={() => onNavigate("compras")}
-            className="rounded-xl bg-white/70 dark:bg-white/5 p-3 text-left shadow-sm hover:bg-white transition-colors dark:hover:bg-white/10"
-          >
-            <ShoppingCart className="h-4 w-4 text-primary mb-1" />
-            <p className="text-lg font-semibold leading-none">{pendingShopping}</p>
-            <p className="text-[11px] text-muted-foreground">para comprar</p>
-          </button>
-          <button
-            onClick={() => setBirthdaysOpen(true)}
-            data-testid="button-open-birthdays"
-            className="rounded-xl bg-white/70 dark:bg-white/5 p-3 text-left shadow-sm hover:bg-white transition-colors dark:hover:bg-white/10"
-          >
-            <Cake className="h-4 w-4 text-primary mb-1" />
-            <p className="text-sm font-semibold leading-tight truncate">{nextBirthday ? nextBirthday.name : "—"}</p>
-            <p className="text-[11px] text-muted-foreground">
-              {daysToBirthday === undefined ? "aniversários" : daysToBirthday === 0 ? "é hoje! 🎉" : `em ${daysToBirthday} dias`}
-            </p>
-          </button>
-          <button
-            onClick={() => onNavigate("ciclo")}
-            className="rounded-xl bg-white/70 dark:bg-white/5 p-3 text-left shadow-sm hover:bg-white transition-colors dark:hover:bg-white/10"
-          >
-            <Droplet className="h-4 w-4 text-primary mb-1" />
-            <p className="text-sm font-semibold leading-tight">
-              {!cycle.hasHistory ? "—" : cycle.active ? `${cycle.dayOfPeriod}º dia` : `${cycle.daysUntilNext} dias`}
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              {!cycle.hasHistory ? "ciclo" : cycle.active ? "menstruação" : "p/ próxima"}
-            </p>
-          </button>
-        </div>
       </Card>
 
-      {(!firstName || editingName) && <NameCard onDone={firstName ? () => setEditingName(false) : undefined} />}
+      {!firstName && <NameCard />}
 
-      <AlertsBanner />
-
-      <Card className="p-4 bg-secondary/60 border-secondary">
-        <p className="text-sm font-medium mb-1">Fale comigo 🎙️</p>
-        <p className="text-xs text-muted-foreground mb-3">
-          Toque no microfone e diga, por exemplo: <em>“{VOICE_EXAMPLES[0]}”</em>
-        </p>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => onVoice("voice")} className="gap-2">
-            <Mic className="h-4 w-4" /> Falar
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => onVoice("type")} className="gap-2">
-            <Keyboard className="h-4 w-4" /> Digitar
-          </Button>
-        </div>
-      </Card>
+      <div className="grid grid-cols-3 gap-2" data-testid="summary-tiles">
+        <button
+          onClick={() => onNavigate("compras")}
+          className="rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
+        >
+          <ShoppingCart className="h-4 w-4 text-primary mb-1" />
+          <p className="text-lg font-semibold leading-none">{pendingShopping}</p>
+          <p className="text-[11px] text-muted-foreground">para comprar</p>
+        </button>
+        <button
+          onClick={() => setBirthdaysOpen(true)}
+          data-testid="button-open-birthdays"
+          className="rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
+        >
+          <Cake className="h-4 w-4 text-primary mb-1" />
+          <p className="text-lg font-semibold leading-none">{monthBirthdays}</p>
+          <p className="text-[11px] text-muted-foreground">aniversários no mês</p>
+        </button>
+        <button
+          onClick={() => onNavigate("ciclo")}
+          className="rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
+        >
+          <Droplet className="h-4 w-4 text-primary mb-1" />
+          <p className="text-sm font-semibold leading-tight">
+            {!cycle.hasHistory ? "—" : cycle.active ? `${cycle.dayOfPeriod}º dia` : `${cycle.daysUntilNext} dias`}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {!cycle.hasHistory ? "ciclo" : cycle.active ? "menstruação" : "p/ próxima"}
+          </p>
+        </button>
+      </div>
 
       <section className="space-y-3">
         <h3 className="font-semibold">Hoje</h3>
