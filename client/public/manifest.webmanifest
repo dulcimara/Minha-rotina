@@ -1,17 +1,31 @@
 {
+  "id": "/",
   "name": "Minha Rotina",
   "short_name": "Minha Rotina",
-  "description": "Organize compromissos, lista de compras, aniversários e seu ciclo — falando.",
+  "description": "Organize o seu dia falando: compromissos, remédios, lista de compras, aniversários, filhos e ciclo menstrual, com avisos na hora certa. Grátis e sem anúncios.",
   "lang": "pt-BR",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fdf2f6",
   "theme_color": "#9b51b5",
+  "categories": ["productivity", "lifestyle", "health"],
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/screenshots/1-hoje.webp", "sizes": "780x1688", "type": "image/webp", "form_factor": "narrow", "label": "Seu dia: compromissos, aniversários e remédios" },
+    { "src": "/screenshots/2-agenda.webp", "sizes": "780x1688", "type": "image/webp", "form_factor": "narrow", "label": "Agende falando ou digitando" },
+    { "src": "/screenshots/3-compras.webp", "sizes": "780x1688", "type": "image/webp", "form_factor": "narrow", "label": "Lista de compras e outras listas" },
+    { "src": "/screenshots/4-filmes.webp", "sizes": "780x1688", "type": "image/webp", "form_factor": "narrow", "label": "Filmes e séries com nota" },
+    { "src": "/screenshots/5-ciclo.webp", "sizes": "780x1688", "type": "image/webp", "form_factor": "narrow", "label": "Acompanhe o seu ciclo" }
+  ],
+  "shortcuts": [
+    { "name": "Lista de compras", "url": "/?aba=compras", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Agenda", "url": "/?aba=agenda", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

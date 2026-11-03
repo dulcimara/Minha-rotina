@@ -14,6 +14,7 @@ import { queryClient } from "@/lib/queryClient";
 import { deleteMedication, saveMedication, setDoseTaken, type DoseTaken, type Medication } from "@/lib/data";
 import { dosesOn, timesEvery, treatmentLabel } from "@/lib/meds";
 import { cn } from "@/lib/utils";
+import { AppIcon } from "@/components/AppIcons";
 
 /** Ilustração do remédio (mesmo estilo das categorias). */
 export function PillArt({ className }: { className?: string }) {
@@ -229,7 +230,7 @@ export function MedsDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     >
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-meds">
         <div className="flex items-center gap-3 rounded-2xl bg-hero p-4">
-          <PillArt />
+          <AppIcon name="remedios" className="h-14 w-14" />
           <div className="text-left">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Remédios</p>
             <DialogTitle className="text-lg font-display font-semibold">Doses de hoje</DialogTitle>

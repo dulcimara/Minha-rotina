@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+  BookOpen,
   BellRing,
   Check,
   Download,
@@ -33,6 +34,8 @@ import { deleteMyAccount, exportMyData } from "@/lib/data";
 import { morningSummary } from "@/lib/morning";
 import { speak } from "@/lib/speech";
 import { PalettePicker } from "@/components/PalettePicker";
+import { InstallDialog } from "@/components/InstallApp";
+import { useInstall } from "@/lib/install";
 import { cn } from "@/lib/utils";
 
 const MODES: { value: AlertMode; title: string; text: string; icon: typeof Music }[] = [
@@ -74,6 +77,8 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [nickname, setNickname] = useState(meta.nickname ?? "");
   const [push, setPush] = useState<PushState>("off");
   const [busy, setBusy] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const install = useInstall();
   const { data: activities = [] } = useActivities();
   const { data: birthdays = [] } = useBirthdays();
   const { data: meds = [] } = useMedications();
@@ -178,6 +183,16 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           <PalettePicker value={settings.palette} onChange={(palette) => save({ palette })} />
         </Section>
 
+        <Section icon={BookOpen} title="Versículo do dia">
+          <ToggleRow
+            id="show-verse"
+            label="Mostrar um versículo de Provérbios no topo"
+            hint="Um versículo novo a cada dia, da tradução Almeida."
+            checked={settings.showVerse}
+            onChange={(v) => save({ showVerse: v })}
+          />
+        </Section>
+
         <Section icon={BellRing} title="Avisos dos compromissos">
           <div className="grid gap-2" role="radiogroup" aria-label="Tipo de aviso">
             {MODES.map(({ value, title, text, icon: Icon }) => {
@@ -225,6 +240,17 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           >
             <Play className="h-4 w-4" /> Ouvir um exemplo
           </Button>
+        </Section>
+
+        <Section icon={Download} title="Instalar o app">
+          {install.installed ? (
+            <p className="text-sm text-muted-foreground">O Minha Rotina já está instalado neste aparelho. 🎉</p>
+          ) : (
+            <Button className="w-full gap-2" onClick={() => setInstallOpen(true)} data-testid="button-settings-install">
+              <Download className="h-4 w-4" /> Instalar no celular
+            </Button>
+          )}
+          <InstallDialog open={installOpen} onOpenChange={setInstallOpen} />
         </Section>
 
         <Section icon={Smartphone} title="Avisos com o app fechado">

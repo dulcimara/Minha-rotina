@@ -1,3 +1,4 @@
+import { AppIcon } from "@/components/AppIcons";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -553,13 +554,7 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          {isMovies ? (
-            <Clapperboard className="h-5 w-5 text-primary" />
-          ) : isShopping ? (
-            <ShoppingCart className="h-5 w-5 text-primary" />
-          ) : (
-            <ListChecks className="h-5 w-5 text-primary" />
-          )}
+          <AppIcon name={isMovies ? "filmes" : "listas"} className="h-9 w-9" />
           {isMovies ? "Filmes e séries" : isShopping ? "Lista de compras" : current?.name}
           {current?.temporary && (
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground">temporária</span>

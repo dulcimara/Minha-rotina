@@ -13,7 +13,7 @@ import {
   fetchMedications,
   fetchDoses,
   fetchCycleDays,
-  fetchWatchlist,
+  fetchWatchlist, fetchWorkouts,
 } from "@/lib/data";
 import { format, subDays } from "date-fns";
 
@@ -31,6 +31,7 @@ export const keys = {
   doses: (u?: string) => ["doses", u],
   cycleDays: (u?: string) => ["cycleDays", u],
   watchlist: (u?: string) => ["watchlist", u],
+  workouts: (u?: string) => ["workouts", u],
 };
 
 export type DataName = keyof typeof keys;
@@ -118,4 +119,9 @@ export function useCycleDays() {
 export function useWatchlist() {
   const userId = useUserId();
   return useQuery({ queryKey: keys.watchlist(userId), queryFn: fetchWatchlist, enabled: !!userId });
+}
+
+export function useWorkouts() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.workouts(userId), queryFn: fetchWorkouts, enabled: !!userId });
 }

@@ -3,6 +3,8 @@ import App from "./App";
 import "./index.css";
 import { unlockAudio } from "@/lib/alarm-sound";
 import { applyPalette, cachedPalette } from "@/lib/palettes";
+// Começa a escutar o convite de instalação do navegador o quanto antes.
+import "@/lib/install";
 
 // Abre já com as cores escolhidas (a escolha também fica salva na conta).
 applyPalette(cachedPalette());
