@@ -27,6 +27,7 @@ export function BodyProfileForm({ compact }: { compact?: boolean }) {
           <Label htmlFor="bp-birth">Nascimento</Label>
           <DateInputBR
             id="bp-birth"
+            autoComplete="bday"
             value={birth}
             onChange={setBirth}
             onBlur={() => {

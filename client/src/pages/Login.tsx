@@ -114,7 +114,7 @@ export default function Login() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="birth">Data de nascimento *</Label>
-                <DateInputBR id="birth" value={birthDate} onChange={setBirthDate} required data-testid="input-birth-date" />
+                <DateInputBR id="birth" value={birthDate} onChange={setBirthDate} autoComplete="bday" required data-testid="input-birth-date" />
                 <p className="text-xs text-muted-foreground">Usada para estimar as calorias que você precisa por dia.</p>
               </div>
             </>
