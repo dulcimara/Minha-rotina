@@ -14,7 +14,7 @@ import { ActivityCard } from "@/components/ActivityCard";
 import { EmptyState } from "@/components/EmptyState";
 import { CalendarX, Cake, Droplet, ShoppingCart, Sparkles, Volume2 } from "lucide-react";
 import { displayName, useAuth } from "@/hooks/use-auth";
-import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWorkouts } from "@/hooks/use-data";
+import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWorkouts, useChildren, useWatchlist } from "@/hooks/use-data";
 import { MedsDialog } from "@/components/MedsDialog";
 import { AppIcon, type AppIconName } from "@/components/AppIcons";
 import { WorkoutsDialog } from "@/components/WorkoutsDialog";
@@ -32,6 +32,8 @@ interface TodayTabProps {
   loading: boolean;
   onAdd: () => void;
   onNavigate: (tab: TabName) => void;
+  onOpenChildren: () => void;
+  onOpenMovies: () => void;
   cardHandlers: {
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
@@ -87,29 +89,30 @@ async function sendCongrats(name: string) {
   }
 }
 
-/** Card de resumo da tela inicial, com o ícone da área. */
-function Tile({ icon, value, label, onClick, testId }: { icon: AppIconName; value: string; label: string; onClick: () => void; testId?: string }) {
+/** Atalho da tela inicial: ícone da área, nome e o número mais importante. */
+function Tile({ icon, name, stat, onClick, testId }: { icon: AppIconName; name: string; stat: string; onClick: () => void; testId?: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       data-testid={testId}
-      className="flex items-center gap-2.5 rounded-2xl border border-card-border bg-card p-2.5 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
+      className="group flex flex-col items-center gap-1 rounded-2xl px-0.5 py-1.5 text-center transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <AppIcon name={icon} className="h-10 w-10" />
-      <span className="min-w-0">
-        <span className="block text-base font-semibold leading-tight">{value}</span>
-        <span className="block text-[11px] leading-tight text-muted-foreground">{label}</span>
-      </span>
+      <AppIcon name={icon} className="h-14 w-14 drop-shadow-[0_6px_10px_rgb(0_0_0/0.12)] transition-transform group-active:scale-95" />
+      <span className="text-[12px] font-semibold leading-tight">{name}</span>
+      <span className="text-[11px] leading-tight text-muted-foreground">{stat}</span>
     </button>
   );
 }
 
-export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers }: TodayTabProps) {
+export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildren, onOpenMovies, cardHandlers }: TodayTabProps) {
   const { user } = useAuth();
   const { data: shopping = [] } = useShopping();
   const { data: birthdays = [] } = useBirthdays();
   const { data: workouts = [] } = useWorkouts();
+  const { data: children = [] } = useChildren();
+  const { data: watchlist = [] } = useWatchlist();
+  const toWatch = watchlist.filter((w) => w.status !== "assisti").length;
   const weekWorkouts = thisWeekCount(workouts);
   const [workoutsOpen, setWorkoutsOpen] = useState(false);
   const { data: cycles = [] } = useCycles();
@@ -176,31 +179,57 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
 
       {!firstName && <NameCard />}
 
-      <InstallBanner />
-
-      <div className="grid grid-cols-2 gap-2" data-testid="summary-tiles">
-        <Tile icon="listas" onClick={() => onNavigate("compras")} value={String(pendingShopping)} label="para comprar" />
+      {/* Atalhos: um ícone para cada área do app, com o número mais importante de cada uma */}
+      <nav aria-label="Áreas do app" className="grid grid-cols-4 gap-x-1.5 gap-y-3" data-testid="summary-tiles">
+        <Tile icon="agenda" name="Agenda" stat={`${todayActivities.length} hoje`} onClick={() => onNavigate("agenda")} />
         <Tile
-          icon="aniversarios"
-          onClick={() => setBirthdaysOpen(true)}
-          testId="button-open-birthdays"
-          value={String(monthBirthdays)}
-          label="aniversários no mês"
+          icon="listas"
+          name="Listas"
+          stat={`${pendingShopping} ${pendingShopping === 1 ? "item" : "itens"}`}
+          onClick={() => onNavigate("compras")}
+          testId="tile-listas"
         />
         <Tile
-          icon="ciclo"
-          onClick={() => onNavigate("ciclo")}
-          value={!cycle.hasHistory ? "—" : cycle.active ? `${cycle.dayOfPeriod}º dia` : `${cycle.daysUntilNext} dias`}
-          label={!cycle.hasHistory ? "ciclo" : cycle.active ? "menstruação" : "p/ próxima"}
+          icon="remedios"
+          name="Remédios"
+          stat={doseSlots.length ? `${takenCount}/${doseSlots.length} doses` : "nenhum hoje"}
+          onClick={() => setMedsOpen(true)}
         />
         <Tile
           icon="atividade"
+          name="Exercícios"
+          stat={`${weekWorkouts} na semana`}
           onClick={() => setWorkoutsOpen(true)}
           testId="button-open-workouts"
-          value={String(weekWorkouts)}
-          label={weekWorkouts === 1 ? "atividade na semana" : "atividades na semana"}
         />
-      </div>
+        <Tile
+          icon="aniversarios"
+          name="Aniversários"
+          stat={`${monthBirthdays} no mês`}
+          onClick={() => setBirthdaysOpen(true)}
+          testId="button-open-birthdays"
+        />
+        <Tile
+          icon="ciclo"
+          name="Ciclo"
+          stat={!cycle.hasHistory ? "registrar" : cycle.active ? `${cycle.dayOfPeriod}º dia` : `${cycle.daysUntilNext} dias`}
+          onClick={() => onNavigate("ciclo")}
+        />
+        <Tile
+          icon="filhos"
+          name="Filhos"
+          stat={children.length ? `${children.length} ${children.length === 1 ? "perfil" : "perfis"}` : "adicionar"}
+          onClick={onOpenChildren}
+        />
+        <Tile
+          icon="filmes"
+          name="Filmes"
+          stat={`${toWatch} p/ ver`}
+          onClick={onOpenMovies}
+        />
+      </nav>
+
+      <InstallBanner />
 
       <section className="space-y-3">
         <h3 className="font-semibold">Hoje</h3>
