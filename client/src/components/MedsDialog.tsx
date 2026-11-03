@@ -3,6 +3,7 @@ import { addDays, format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { DateInputBR } from "@/components/DateInputBR";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -58,6 +59,7 @@ function MedForm({ med, onDone }: { med?: Medication; onDone: () => void }) {
   });
   const [startDate, setStartDate] = useState(med?.startDate ?? today);
   const [reminder, setReminder] = useState(med?.reminder ?? true);
+  const [notes, setNotes] = useState(med?.notes ?? "");
   const [saving, setSaving] = useState(false);
 
   const finalTimes = mode === "every" ? timesEvery(first, every) : Array.from(new Set(times.filter(Boolean))).sort();
@@ -74,7 +76,7 @@ function MedForm({ med, onDone }: { med?: Medication; onDone: () => void }) {
       const [y, m, d] = startDate.split("-").map(Number);
       const endDate = continuous ? undefined : format(addDays(new Date(y, m - 1, d), Math.max(1, days) - 1), "yyyy-MM-dd");
       await saveMedication(
-        { name, dose, times: finalTimes, startDate, endDate, reminder, childId: childId || undefined },
+        { name, dose, times: finalTimes, startDate, endDate, reminder, childId: childId || undefined, notes },
         med?.id,
       );
       refresh(userId, "medications");
@@ -184,6 +186,20 @@ function MedForm({ med, onDone }: { med?: Medication; onDone: () => void }) {
         </div>
       </div>
 
+      <div className="space-y-1.5">
+        <Label htmlFor="med-notes">
+          Observação <span className="text-muted-foreground font-normal">(opcional)</span>
+        </Label>
+        <Textarea
+          id="med-notes"
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Ex.: tomar depois do almoço, guardar na geladeira, receita do Dr. Paulo"
+          data-testid="input-med-notes"
+        />
+      </div>
+
       <div className="flex items-center justify-between rounded-xl bg-background p-3">
         <Label htmlFor="med-alert">Avisar em cada horário</Label>
         <Switch id="med-alert" checked={reminder} onCheckedChange={setReminder} />
@@ -266,6 +282,7 @@ export function MedsDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                       <span className={cn("flex-1 min-w-0", s.taken && "line-through text-muted-foreground")}>
                         {s.med.name}
                         {s.med.dose && <span className="text-muted-foreground"> · {s.med.dose}</span>}
+                        {s.med.notes && <span className="block text-xs italic text-muted-foreground">{s.med.notes}</span>}
                         {forWho && <span className="block text-xs text-muted-foreground">para {forWho}</span>}
                       </span>
                       {late && <span className="text-[11px] text-destructive">atrasada</span>}
@@ -295,6 +312,7 @@ export function MedsDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                           {m.times.join(", ")} · {treatmentLabel(m)}
                           {childName(m.childId) ? ` · ${childName(m.childId)}` : ""}
                         </p>
+                        {m.notes && <p className="text-xs italic text-foreground/70 line-clamp-2">{m.notes}</p>}
                       </div>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(m)} title="Editar">
                         <Pencil className="h-4 w-4" />

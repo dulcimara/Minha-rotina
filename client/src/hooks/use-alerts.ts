@@ -158,7 +158,7 @@ export function useAlerts() {
       due.push({
         key,
         title: `💊 ${s.med.name}`,
-        subtitle: `${s.time}${s.med.dose ? ` · ${s.med.dose}` : ""}${forWho ? ` · para ${forWho}` : ""}`,
+        subtitle: `${s.time}${s.med.dose ? ` · ${s.med.dose}` : ""}${forWho ? ` · para ${forWho}` : ""}${s.med.notes ? ` · ${s.med.notes}` : ""}`,
         spoken: `${name ? `${name}, h` : "H"}ora do remédio${forWho ? ` do ${forWho}` : ""}: ${s.med.name}${s.med.dose ? `, ${s.med.dose}` : ""}.`,
         dose: { medicationId: s.med.id, day: s.day, time: s.time },
       });
