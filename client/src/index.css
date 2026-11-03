@@ -4,6 +4,12 @@
 
 /* LIGHT MODE - Paleta Lilás & Rosa bebê */
 :root {
+  /* Degradês padrão (rosa e lilás); a paleta escolhida substitui */
+  --hero-1: 340 90% 92%;
+  --hero-2: 300 60% 92%;
+  --hero-3: 285 55% 88%;
+  --mic-1: 338 78% 72%;
+  --mic-2: 285 42% 52%;
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
   --opaque-button-border-intensity: -8;
@@ -89,6 +95,9 @@
 }
 
 .dark {
+  --hero-1: 335 30% 22%;
+  --hero-2: 300 24% 19%;
+  --hero-3: 290 20% 17%;
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
   --opaque-button-border-intensity: 9;
@@ -290,13 +299,11 @@
 
 /* Detalhes visuais do Minha Rotina */
 @layer components {
+  /* Degradês: as cores vêm da paleta escolhida (lib/palettes.ts) */
   .bg-hero {
-    background-image: linear-gradient(135deg, hsl(340 90% 92%) 0%, hsl(300 60% 92%) 55%, hsl(285 55% 88%) 100%);
-  }
-  .dark .bg-hero {
-    background-image: linear-gradient(135deg, hsl(335 30% 22%) 0%, hsl(290 25% 20%) 100%);
+    background-image: linear-gradient(135deg, hsl(var(--hero-1)) 0%, hsl(var(--hero-2)) 55%, hsl(var(--hero-3)) 100%);
   }
   .bg-mic {
-    background-image: linear-gradient(145deg, hsl(338 78% 72%) 0%, hsl(285 42% 52%) 100%);
+    background-image: linear-gradient(145deg, hsl(var(--mic-1)) 0%, hsl(var(--mic-2)) 100%);
   }
 }

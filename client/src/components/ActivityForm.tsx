@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { NativeSelect } from "@/components/NativeSelect";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
+import { useChildren } from "@/hooks/use-data";
 import { Bell, Volume2, MessageSquare, User, MapPin, Phone } from "lucide-react";
 import { CATEGORIES, REMINDER_OPTIONS } from "@/lib/options";
 import type { Activity, ActivityInput } from "@/lib/data";
@@ -40,6 +41,8 @@ export function ActivityForm({ onSave, onCancel, activity, defaultDate, withCale
   const [reminderEnabled, setReminderEnabled] = useState(activity?.reminderEnabled ?? true);
   const [minutesBefore, setMinutesBefore] = useState(activity?.reminderMinutesBefore ?? 30);
   const [repeatDays, setRepeatDays] = useState<number[]>(activity?.repeatDays ?? []);
+  const [childId, setChildId] = useState(activity?.childId ?? "");
+  const { data: children = [] } = useChildren();
   const [reminderType, setReminderType] = useState<"text" | "voice">(activity?.reminderType ?? "text");
   const [voiceText, setVoiceText] = useState(activity?.reminderVoiceText ?? "");
   const [voiceGender, setVoiceGender] = useState<"male" | "female">(activity?.reminderVoiceGender ?? "female");
@@ -67,6 +70,7 @@ export function ActivityForm({ onSave, onCancel, activity, defaultDate, withCale
       reminderType,
       reminderMinutesBefore: minutesBefore,
       ...(repeatDays.length || activity?.repeatDays?.length ? { repeatDays } : {}),
+      ...(childId || activity?.childId ? { childId } : {}),
       reminderVoiceText: reminderType === "voice" ? voiceText : undefined,
       reminderVoiceGender: reminderType === "voice" ? voiceGender : undefined,
     });
@@ -160,6 +164,18 @@ export function ActivityForm({ onSave, onCancel, activity, defaultDate, withCale
               ))}
             </NativeSelect>
           </div>
+
+          {children.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="child">Para quem</Label>
+              <NativeSelect id="child" value={childId} onChange={(e) => setChildId(e.target.value)}>
+                <option value="">Para mim / família</option>
+                {children.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </NativeSelect>
+            </div>
+          )}
 
           <WeekdayPicker id="repeat" value={repeatDays} onChange={setRepeatDays} />
 

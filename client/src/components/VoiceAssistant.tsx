@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/NativeSelect";
 import { Mic, Keyboard, Plus, X, Loader2 } from "lucide-react";
 import { KindHeader } from "@/components/KindHeader";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/lib/supabase";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { repeatLabel } from "@/lib/recurrence";
 import { useToast } from "@/hooks/use-toast";
@@ -147,6 +149,9 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
   const [understood, setUnderstood] = useState(true);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const cycleConsented = Boolean((user?.user_metadata as { cycle_consent_at?: string } | undefined)?.cycle_consent_at);
+  const [cycleConsent, setCycleConsent] = useState(false);
   const stopRef = useRef<() => void>(() => {});
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -204,6 +209,9 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
   const save = async () => {
     setSaving(true);
     try {
+      if ((draft.kind === "period_start" || draft.kind === "period_end") && !cycleConsented) {
+        await supabase.auth.updateUser({ data: { cycle_consent_at: new Date().toISOString() } });
+      }
       let spoken = "";
       if (draft.kind === "activity") {
         const [h, m] = draft.time.split(":").map(Number);
@@ -477,6 +485,20 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
 
               {isPeriod && (
                 <>
+                  {!cycleConsented && (
+                    <label className="flex items-start gap-2 rounded-xl bg-muted/60 p-3 text-xs">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]"
+                        checked={cycleConsent}
+                        onChange={(e) => setCycleConsent(e.target.checked)}
+                      />
+                      <span>
+                        Concordo em registrar meus dados do ciclo menstrual (dados sensíveis de saúde, só eu vejo e posso apagar
+                        quando quiser).
+                      </span>
+                    </label>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       type="button"
@@ -505,7 +527,11 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
               <Button variant="ghost" onClick={startListening} disabled={saving}>
                 <Mic className="h-4 w-4 mr-2" /> Falar de novo
               </Button>
-              <Button onClick={save} disabled={saving} data-testid="button-voice-confirm">
+              <Button
+                onClick={save}
+                disabled={saving || (isPeriod && !cycleConsented && !cycleConsent)}
+                data-testid="button-voice-confirm"
+              >
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Confirmar
               </Button>

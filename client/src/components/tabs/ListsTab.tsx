@@ -11,9 +11,11 @@ import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { KindHeader } from "@/components/KindHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { CatalogDialog } from "@/components/CatalogDialog";
+import { WatchlistView } from "@/components/WatchlistView";
 import { QuantityStepper } from "@/components/QuantityStepper";
 import {
   BookOpen,
+  Clapperboard,
   CheckCheck,
   Hourglass,
   ListChecks,
@@ -504,6 +506,9 @@ function ListItems({
 // Aba Listas
 // ---------------------------------------------------------------
 
+/** Valor especial de "lista aberta" para Filmes e séries. */
+export const MOVIES = "filmes";
+
 export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
   const { data: lists = [] } = useLists();
   const [dialog, setDialog] = useState<{ open: boolean; key: number; list: CustomList | null }>({
@@ -511,8 +516,9 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
     key: 0,
     list: null,
   });
+  const isMovies = listId === MOVIES;
   const current = lists.find((l) => l.id === listId);
-  const isShopping = !current;
+  const isShopping = !current && !isMovies;
 
   const chip = (active: boolean) =>
     cn(
@@ -526,6 +532,9 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
       <div className="-mx-4 px-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
         <button className={chip(isShopping)} onClick={() => onSelectList(undefined)} data-testid="chip-list-shopping">
           <ShoppingCart className="h-4 w-4" /> Compras
+        </button>
+        <button className={chip(isMovies)} onClick={() => onSelectList(MOVIES)} data-testid="chip-list-movies">
+          <Clapperboard className="h-4 w-4" /> Filmes e séries
         </button>
         {lists.map((l) => (
           <button key={l.id} className={chip(l.id === listId)} onClick={() => onSelectList(l.id)}>
@@ -544,8 +553,14 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          {isShopping ? <ShoppingCart className="h-5 w-5 text-primary" /> : <ListChecks className="h-5 w-5 text-primary" />}
-          {isShopping ? "Lista de compras" : current.name}
+          {isMovies ? (
+            <Clapperboard className="h-5 w-5 text-primary" />
+          ) : isShopping ? (
+            <ShoppingCart className="h-5 w-5 text-primary" />
+          ) : (
+            <ListChecks className="h-5 w-5 text-primary" />
+          )}
+          {isMovies ? "Filmes e séries" : isShopping ? "Lista de compras" : current?.name}
           {current?.temporary && (
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground">temporária</span>
           )}
@@ -564,14 +579,18 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
         )}
       </div>
 
-      <ListItems
-        key={listId ?? "compras"}
-        listId={listId}
-        list={current}
-        isShopping={isShopping}
-        onVoice={onVoice}
-        onListDeleted={() => onSelectList(undefined)}
-      />
+      {isMovies ? (
+        <WatchlistView />
+      ) : (
+        <ListItems
+          key={listId ?? "compras"}
+          listId={current ? listId : undefined}
+          list={current}
+          isShopping={isShopping}
+          onVoice={onVoice}
+          onListDeleted={() => onSelectList(undefined)}
+        />
+      )}
 
       <ListDialog
         key={dialog.key}

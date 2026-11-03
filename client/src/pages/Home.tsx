@@ -8,9 +8,12 @@ import { AlertModal } from "@/components/AlertModal";
 import { MonthlyShoppingPrompt } from "@/components/MonthlyShoppingPrompt";
 import { TodayTab } from "@/components/tabs/TodayTab";
 import { AgendaTab } from "@/components/tabs/AgendaTab";
-import { ListsTab } from "@/components/tabs/ListsTab";
+import { ListsTab, MOVIES } from "@/components/tabs/ListsTab";
 import { CycleTab } from "@/components/tabs/CycleTab";
-import { CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, Plus, Settings } from "lucide-react";
+import { Baby, CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, Plus, Settings } from "lucide-react";
+import { ChildrenDialog } from "@/components/ChildrenDialog";
+import { Onboarding } from "@/components/Onboarding";
+import { useAuth } from "@/hooks/use-auth";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { useToast } from "@/hooks/use-toast";
 import { keys, refresh, useActivities, useUserId } from "@/hooks/use-data";
@@ -22,6 +25,7 @@ import {
   deleteActivity,
   setActivityCompleted,
   setOccurrenceCompleted,
+  setDoseTaken,
   updateActivity,
   type Activity,
   type ActivityInput,
@@ -44,6 +48,9 @@ export default function Home() {
 
   const [tab, setTab] = useState<TabName>("hoje");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { user } = useAuth();
+  const onboarded = Boolean((user?.user_metadata as { onboarded_at?: string } | undefined)?.onboarded_at);
+  const [childrenOpen, setChildrenOpen] = useState(false);
   /** lista aberta na aba Listas (vazio = lista de compras) */
   const [listId, setListId] = useState<string | undefined>();
   const [voice, setVoice] = useState<{ open: boolean; mode: "voice" | "type"; context?: "shopping" }>({
@@ -145,6 +152,10 @@ export default function Home() {
               <span className="sr-only">Novo compromisso</span>
             </Button>
             <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={() => setChildrenOpen(true)} data-testid="button-children" title="Meus filhos">
+              <Baby className="h-5 w-5" />
+              <span className="sr-only">Meus filhos</span>
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} data-testid="button-settings" title="Configurações">
               <Settings className="h-5 w-5" />
               <span className="sr-only">Configurações</span>
@@ -183,7 +194,7 @@ export default function Home() {
           ))}
           <div className="flex justify-center">
             <button
-              onClick={() => openVoice("voice", tab === "compras" ? "shopping" : undefined)}
+              onClick={() => openVoice("voice", tab === "compras" && listId !== MOVIES ? "shopping" : undefined)}
               className="-mt-7 h-16 w-16 rounded-full bg-mic text-white shadow-[0_8px_20px_-6px_hsl(320_60%_50%/0.6)] ring-4 ring-background flex items-center justify-center active:scale-95 transition-transform"
               data-testid="button-voice-recording"
             >
@@ -201,7 +212,7 @@ export default function Home() {
         open={voice.open}
         mode={voice.mode}
         context={voice.context}
-        listId={voice.context === "shopping" ? listId : undefined}
+        listId={voice.context === "shopping" && listId !== MOVIES ? listId : undefined}
         onOpenChange={(open) => setVoice((v) => ({ ...v, open }))}
       />
 
@@ -215,11 +226,27 @@ export default function Home() {
       />
 
       {/* espera o alerta (se houver) ser fechado, para não abrir uma janela sobre a outra */}
+      <Onboarding />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ChildrenDialog open={childrenOpen} onOpenChange={setChildrenOpen} />
 
-      <MonthlyShoppingPrompt paused={!!alerts.current} />
+      <MonthlyShoppingPrompt paused={!!alerts.current || !onboarded} />
 
-      <AlertModal alert={alerts.current} onDismiss={alerts.dismiss} onSnooze={() => alerts.snooze(5)} />
+      <AlertModal
+        alert={alerts.current}
+        onDismiss={alerts.dismiss}
+        onSnooze={() => alerts.snooze(5)}
+        onTaken={() => {
+          const d = alerts.current?.dose;
+          if (d) {
+            setDoseTaken(d.medicationId, d.day, d.time, true).then(
+              () => refresh(userId, "doses"),
+              (err: Error) => showError("Não foi possível salvar")(err),
+            );
+          }
+          alerts.dismiss();
+        }}
+      />
     </div>
   );
 }

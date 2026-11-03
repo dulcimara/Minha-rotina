@@ -13,25 +13,51 @@ export interface AccountSettings {
   alertMode: AlertMode;
   voiceGender: "female" | "male";
   vibrate: boolean;
+  /** resumo da manhã: notificação no horário escolhido */
+  morningSummary: boolean;
+  morningTime: string; // "07:00"
+  /** aviso 2 dias antes da menstruação prevista (opcional, aparece na tela bloqueada) */
+  cycleAlert: boolean;
+  /** mostrar o período fértil estimado no ciclo */
+  showFertile: boolean;
+  /** paleta de cores do app */
+  palette: string;
 }
 
-export const DEFAULT_SETTINGS: AccountSettings = { alertMode: "voice", voiceGender: "female", vibrate: true };
+export const DEFAULT_SETTINGS: AccountSettings = {
+  alertMode: "voice",
+  voiceGender: "female",
+  vibrate: true,
+  morningSummary: false,
+  morningTime: "07:00",
+  cycleAlert: false,
+  showFertile: false,
+  palette: "rosa",
+};
+
+// Nome de cada configuração dentro da conta (user_metadata)
+const META: Record<keyof AccountSettings, string> = {
+  alertMode: "alert_mode",
+  voiceGender: "voice_gender",
+  vibrate: "vibrate",
+  morningSummary: "morning_summary",
+  morningTime: "morning_time",
+  cycleAlert: "cycle_alert",
+  showFertile: "show_fertile",
+  palette: "palette",
+};
 
 /** As configurações ficam na própria conta (valem em todos os aparelhos). */
 export function readSettings(user: User | null | undefined): AccountSettings {
-  const meta = (user?.user_metadata ?? {}) as Partial<{ alert_mode: AlertMode; voice_gender: "female" | "male"; vibrate: boolean }>;
-  return {
-    alertMode: meta.alert_mode ?? DEFAULT_SETTINGS.alertMode,
-    voiceGender: meta.voice_gender ?? DEFAULT_SETTINGS.voiceGender,
-    vibrate: meta.vibrate ?? DEFAULT_SETTINGS.vibrate,
-  };
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const out = { ...DEFAULT_SETTINGS } as Record<string, unknown>;
+  for (const [k, col] of Object.entries(META)) if (meta[col] !== undefined && meta[col] !== null) out[k] = meta[col];
+  return out as unknown as AccountSettings;
 }
 
 export async function saveSettings(patch: Partial<AccountSettings>) {
   const data: Record<string, unknown> = {};
-  if (patch.alertMode) data.alert_mode = patch.alertMode;
-  if (patch.voiceGender) data.voice_gender = patch.voiceGender;
-  if (patch.vibrate !== undefined) data.vibrate = patch.vibrate;
+  for (const [k, v] of Object.entries(patch)) if (v !== undefined) data[META[k as keyof AccountSettings]] = v;
   const { error } = await supabase.auth.updateUser({ data });
   if (error) throw error;
 }

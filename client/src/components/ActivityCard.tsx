@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { CategoryArt } from "@/components/CategoryArt";
+import { useChildren } from "@/hooks/use-data";
 import { categoryLabel, reminderLabel } from "@/lib/options";
 
 interface ActivityCardProps {
@@ -16,6 +17,7 @@ interface ActivityCardProps {
   address?: string;
   phone?: string;
   repeatDays?: number[];
+  childId?: string;
   date: Date;
   category: string;
   completed: boolean;
@@ -38,6 +40,7 @@ export function ActivityCard({
   address,
   phone,
   repeatDays,
+  childId,
   date,
   category,
   completed,
@@ -52,6 +55,9 @@ export function ActivityCard({
   onDelete,
   onToggleComplete,
 }: ActivityCardProps) {
+  const { data: children = [] } = useChildren();
+  const childName = children.find((c) => c.id === childId)?.name;
+
   return (
     <Card 
       className={cn(
@@ -73,7 +79,10 @@ export function ActivityCard({
               data-testid={`text-activity-title-${id}`}
             >
               {title}
-              <span className="block text-xs font-normal text-muted-foreground">{categoryLabel(category)}</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                {categoryLabel(category)}
+                {childName ? ` · ${childName}` : ""}
+              </span>
             </h3>
             <Checkbox
               checked={completed}

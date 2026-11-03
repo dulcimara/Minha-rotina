@@ -3,9 +3,14 @@ import { differenceInCalendarDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarHeart, CalendarPlus, Droplet, Pencil, BarChart3 } from "lucide-react";
+import { CalendarHeart, CalendarPlus, Droplet, Pencil, BarChart3, NotebookPen, ShieldCheck, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { refresh, useCycles, useUserId } from "@/hooks/use-data";
+import { refresh, useCycleDays, useCycles, useUserId } from "@/hooks/use-data";
+import { useAuth } from "@/hooks/use-auth";
+import { readSettings } from "@/lib/settings";
+import { supabase } from "@/lib/supabase";
+import { CycleDayDialog, FLOWS, MOODS } from "@/components/CycleDayDialog";
+import { CycleEvolution } from "@/components/CycleEvolution";
 import { endCycle, startCycle, type Cycle } from "@/lib/data";
 import { summarizeCycles } from "@/lib/cycle";
 import { CycleChart } from "@/components/CycleChart";
@@ -23,6 +28,14 @@ export function CycleTab() {
   });
 
   const summary = summarizeCycles(cycles);
+  const { user } = useAuth();
+  const settings = readSettings(user);
+  const { data: cycleDays = [] } = useCycleDays();
+  const todayKey = format(new Date(), "yyyy-MM-dd");
+  const todayEntry = cycleDays.find((d) => d.day === todayKey);
+  const [dayDialog, setDayDialog] = useState<{ open: boolean; key: number; day: string }>({ open: false, key: 0, day: todayKey });
+  const openDay = (day: string) => setDayDialog((d) => ({ open: true, key: d.key + 1, day }));
+  const consented = Boolean((user?.user_metadata as { cycle_consent_at?: string } | undefined)?.cycle_consent_at);
 
   const openDialog = (cycle: Cycle | null) => setDialog((d) => ({ open: true, key: d.key + 1, cycle }));
 
@@ -38,6 +51,34 @@ export function CycleTab() {
       setBusy(false);
     }
   };
+
+  // Dados do ciclo são dados sensíveis de saúde (LGPD): pede consentimento específico antes do primeiro uso.
+  if (!consented) {
+    return (
+      <Card className="p-5 space-y-4 bg-hero border-0">
+        <div className="mx-auto h-14 w-14 rounded-2xl bg-mic text-white flex items-center justify-center shadow-md">
+          <ShieldCheck className="h-7 w-7" />
+        </div>
+        <div className="space-y-2 text-center">
+          <h2 className="text-xl font-display font-semibold">Seu ciclo, só seu</h2>
+          <p className="text-sm text-muted-foreground">
+            As informações do ciclo menstrual são <strong>dados sensíveis de saúde</strong>. Elas ficam guardadas na sua conta,
+            só você vê, nunca são compartilhadas e você pode apagar quando quiser.
+          </p>
+        </div>
+        <Button
+          className="w-full"
+          data-testid="button-cycle-consent"
+          onClick={() => supabase.auth.updateUser({ data: { cycle_consent_at: new Date().toISOString() } })}
+        >
+          Concordo em registrar meus dados do ciclo
+        </Button>
+        <a href="/privacidade" target="_blank" rel="noreferrer" className="block text-center text-xs text-primary underline-offset-4 hover:underline">
+          Ler a política de privacidade
+        </a>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -90,12 +131,52 @@ export function CycleTab() {
         </div>
       </Card>
 
+      {/* Diário: como está hoje */}
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold flex items-center gap-2">
+              <NotebookPen className="h-5 w-5 text-primary" /> Como você está hoje?
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {todayEntry
+                ? [
+                    todayEntry.flow && `Fluxo ${FLOWS.find((f) => f.value === todayEntry.flow)?.label.toLowerCase()}`,
+                    ...todayEntry.symptoms,
+                    todayEntry.mood && MOODS.find((m) => m.value === todayEntry.mood)?.label,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "Registre fluxo, sintomas e humor."}
+            </p>
+          </div>
+          <Button size="sm" variant={todayEntry ? "outline" : "default"} onClick={() => openDay(todayKey)} data-testid="button-cycle-today">
+            {todayEntry ? "Editar" : "Registrar"}
+          </Button>
+        </div>
+      </Card>
+
+      {(cycles.length > 1 || cycleDays.length > 0) && (
+        <Card className="p-4 space-y-3">
+          <h3 className="font-semibold flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" /> Evolução
+          </h3>
+          <CycleEvolution cycles={cycles} days={cycleDays} />
+        </Card>
+      )}
+
       {cycles.length > 0 && (
         <Card className="p-4 space-y-3">
           <h3 className="font-semibold flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-primary" /> Últimos 6 meses
           </h3>
-          <CycleChart cycles={cycles} nextStart={summary.nextStart} averagePeriod={summary.averagePeriod} />
+          <CycleChart
+            cycles={cycles}
+            nextStart={summary.nextStart}
+            averagePeriod={summary.averagePeriod}
+            averageCycle={summary.averageCycle}
+            showFertile={settings.showFertile}
+          />
         </Card>
       )}
 
@@ -133,6 +214,13 @@ export function CycleTab() {
         A previsão é uma estimativa pela média dos seus ciclos e não substitui orientação médica.
       </p>
 
+      <CycleDayDialog
+        key={`day-${dayDialog.key}`}
+        open={dayDialog.open}
+        onOpenChange={(open) => setDayDialog((d) => ({ ...d, open }))}
+        day={dayDialog.day}
+        entry={cycleDays.find((d) => d.day === dayDialog.day)}
+      />
       <CycleDialog
         key={dialog.key}
         open={dialog.open}

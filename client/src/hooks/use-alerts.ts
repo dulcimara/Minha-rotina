@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useActivities, useBirthdays } from "@/hooks/use-data";
+import { useActivities, useBirthdays, useChildren, useDoses, useMedications } from "@/hooks/use-data";
+import { dosesOn } from "@/lib/meds";
 import { displayName, useAuth } from "@/hooks/use-auth";
 import { readSettings, type AlertMode } from "@/lib/settings";
 import { playChime, vibrate } from "@/lib/alarm-sound";
@@ -24,6 +25,8 @@ export interface AlertItem {
   subtitle: string;
   address?: string;
   phone?: string;
+  /** aviso de remédio: permite marcar "Tomei" direto no alerta */
+  dose?: { medicationId: string; day: string; time: string };
   spoken: string;
   gender?: "male" | "female";
 }
@@ -106,6 +109,9 @@ async function systemNotification(item: AlertItem) {
 export function useAlerts() {
   const { data: activities = [] } = useActivities();
   const { data: birthdays = [] } = useBirthdays();
+  const { data: meds = [] } = useMedications();
+  const { data: dosesTaken = [] } = useDoses();
+  const { data: children = [] } = useChildren();
   const { user } = useAuth();
   const name = displayName(user);
   const settings = readSettings(user);
@@ -140,6 +146,23 @@ export function useAlerts() {
       const item = activityAlert(a, now, name);
       if (item && !fired.current.has(item.key)) due.push(item);
     }
+    // Remédios: em cada horário, até 15 min depois
+    for (const s of dosesOn(meds, dosesTaken, now)) {
+      if (!s.med.reminder || s.taken) continue;
+      const diff = now.getTime() - s.at.getTime();
+      if (diff < 0 || diff > LATE_TOLERANCE_MS) continue;
+      const forWho = children.find((c) => c.id === s.med.childId)?.name;
+      const key = `med:${s.med.id}:${s.day}:${s.time}`;
+      if (fired.current.has(key)) continue;
+      due.push({
+        key,
+        title: `💊 ${s.med.name}`,
+        subtitle: `${s.time}${s.med.dose ? ` · ${s.med.dose}` : ""}${forWho ? ` · para ${forWho}` : ""}`,
+        spoken: `${name ? `${name}, h` : "H"}ora do remédio${forWho ? ` do ${forWho}` : ""}: ${s.med.name}${s.med.dose ? `, ${s.med.dose}` : ""}.`,
+        dose: { medicationId: s.med.id, day: s.day, time: s.time },
+      });
+    }
+
     for (const b of birthdays) {
       const item = birthdayAlert(b, now, name);
       if (item && !fired.current.has(item.key)) due.push(item);
@@ -153,7 +176,7 @@ export function useAlerts() {
       saveFired(fired.current);
       due.forEach(trigger);
     }
-  }, [activities, birthdays, trigger, name]);
+  }, [activities, birthdays, meds, dosesTaken, children, trigger, name]);
 
   useEffect(() => {
     check();

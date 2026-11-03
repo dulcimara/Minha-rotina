@@ -2,6 +2,10 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import { unlockAudio } from "@/lib/alarm-sound";
+import { applyPalette, cachedPalette } from "@/lib/palettes";
+
+// Abre já com as cores escolhidas (a escolha também fica salva na conta).
+applyPalette(cachedPalette());
 
 // O navegador só deixa tocar som depois do primeiro toque na tela.
 const unlock = () => unlockAudio();

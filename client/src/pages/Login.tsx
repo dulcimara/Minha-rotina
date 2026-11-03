@@ -21,6 +21,7 @@ export default function Login() {
   const [mode, setMode] = useState<Mode>("entrar");
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,11 +40,12 @@ export default function Login() {
         if (error) throw error;
       } else {
         if (!name.trim()) throw new Error("Informe seu nome.");
+        if (!accepted) throw new Error("Para criar a conta, aceite a política de privacidade.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { name: name.trim(), nickname: nickname.trim() || undefined },
+            data: { name: name.trim(), nickname: nickname.trim() || undefined, privacy_accepted_at: new Date().toISOString() },
             emailRedirectTo: window.location.origin,
           },
         });
@@ -129,10 +131,29 @@ export default function Login() {
             />
           </div>
 
+          {mode === "cadastrar" && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-[hsl(var(--primary))]"
+                checked={accepted}
+                onChange={(e) => setAccepted(e.target.checked)}
+                data-testid="checkbox-privacy"
+              />
+              <span>
+                Li e aceito a{" "}
+                <a href="/privacidade" target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                  política de privacidade
+                </a>
+                .
+              </span>
+            </label>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
           {info && <p className="text-sm text-primary">{info}</p>}
 
-          <Button type="submit" className="w-full" disabled={loading || (mode === "cadastrar" && !name.trim())}>
+          <Button type="submit" className="w-full" disabled={loading || (mode === "cadastrar" && (!name.trim() || !accepted))}>
             {loading ? "Aguarde..." : mode === "entrar" ? "Entrar" : "Criar conta"}
           </Button>
         </form>

@@ -5,9 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
+import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { supabaseConfigured } from "@/lib/supabase";
+import { useEffect } from "react";
+import { readSettings } from "@/lib/settings";
+import { applyPalette } from "@/lib/palettes";
 
 function Router() {
   return (
@@ -19,7 +23,12 @@ function Router() {
 }
 
 function Gate() {
-  const { session, loading } = useAuth();
+  const { session, loading, user } = useAuth();
+  const palette = readSettings(user).palette;
+  // Ao entrar (ou trocar nas configurações), aplica a paleta salva na conta.
+  useEffect(() => {
+    if (user) applyPalette(palette);
+  }, [user, palette]);
 
   if (!supabaseConfigured) {
     return (
@@ -44,6 +53,14 @@ function Gate() {
 }
 
 function App() {
+  // A política de privacidade abre para qualquer pessoa, mesmo sem entrar.
+  if (window.location.pathname.startsWith("/privacidade")) {
+    return (
+      <TooltipProvider>
+        <Privacy />
+      </TooltipProvider>
+    );
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

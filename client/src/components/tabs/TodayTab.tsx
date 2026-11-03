@@ -1,4 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { morningSummary } from "@/lib/morning";
+import { speak } from "@/lib/speech";
+import { readSettings } from "@/lib/settings";
+import { cn } from "@/lib/utils";
 import { addDays, format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { upperFirst } from "@/lib/utils";
@@ -8,9 +12,11 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { ActivityCard } from "@/components/ActivityCard";
 import { EmptyState } from "@/components/EmptyState";
-import { CalendarX, Cake, Droplet, ShoppingCart, Sparkles } from "lucide-react";
+import { CalendarX, Cake, Droplet, ShoppingCart, Sparkles, Volume2 } from "lucide-react";
 import { displayName, useAuth } from "@/hooks/use-auth";
-import { useBirthdays, useCycles, useShopping } from "@/hooks/use-data";
+import { useBirthdays, useCycles, useDoses, useMedications, useShopping } from "@/hooks/use-data";
+import { MedsDialog, PillArt } from "@/components/MedsDialog";
+import { dosesOn } from "@/lib/meds";
 import type { Activity } from "@/lib/data";
 import { summarizeCycles } from "@/lib/cycle";
 import { BirthdaysDialog } from "@/components/BirthdaysDialog";
@@ -85,6 +91,19 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
 
   const firstName = displayName(user);
   const [birthdaysOpen, setBirthdaysOpen] = useState(false);
+  const [medsOpen, setMedsOpen] = useState(false);
+  // Veio da notificação do resumo da manhã: destaca o botão "Ouvir meu dia".
+  const [fromSummary, setFromSummary] = useState(() => new URLSearchParams(window.location.search).has("resumo"));
+  useEffect(() => {
+    if (fromSummary) window.history.replaceState(null, "", "/");
+  }, [fromSummary]);
+  const { data: meds = [] } = useMedications();
+  const { data: dosesTaken = [] } = useDoses();
+  const doseSlots = dosesOn(meds, dosesTaken);
+  const takenCount = doseSlots.filter((d) => d.taken).length;
+  const nowTime = new Date();
+  const nextDose = doseSlots.find((d) => !d.taken && d.at >= nowTime);
+  const lateDoses = doseSlots.filter((d) => !d.taken && d.at < nowTime).length;
   const today = startOfDay(new Date());
   const todayActivities = occurrencesBetween(activities, today, today);
   // Próximos 7 dias; das recorrentes mostra só a próxima vez, para não repetir a lista.
@@ -116,6 +135,18 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
             </p>
           </div>
         </div>
+        <Button
+          size="sm"
+          variant={fromSummary ? "default" : "outline"}
+          className={cn("mt-3 gap-2 bg-white/60 dark:bg-transparent", fromSummary && "bg-primary animate-pulse")}
+          onClick={() => {
+            setFromSummary(false);
+            speak(morningSummary({ name: firstName, activities, birthdays, meds, doses: dosesTaken }), readSettings(user).voiceGender);
+          }}
+          data-testid="button-hear-summary"
+        >
+          <Volume2 className="h-4 w-4" /> Ouvir meu dia
+        </Button>
       </Card>
 
       {!firstName && <NameCard />}
@@ -187,6 +218,31 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
         )}
       </section>
 
+      {/* Remédios de hoje: um ícone logo abaixo das atividades do dia */}
+      <button
+        type="button"
+        onClick={() => setMedsOpen(true)}
+        className="w-full flex items-center gap-3 rounded-2xl border border-card-border bg-card p-3 text-left shadow-[0_4px_18px_-8px_hsl(330_60%_60%/0.28)] hover:bg-secondary/60 transition-colors"
+        data-testid="button-open-meds"
+      >
+        <PillArt />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">Remédios de hoje</p>
+          <p className="text-xs text-muted-foreground">
+            {doseSlots.length === 0
+              ? "Nenhum remédio cadastrado para hoje. Toque para adicionar."
+              : nextDose
+                ? `${takenCount} de ${doseSlots.length} tomados · próximo às ${nextDose.time}: ${nextDose.med.name}`
+                : `${takenCount} de ${doseSlots.length} tomados`}
+          </p>
+        </div>
+        {lateDoses > 0 && (
+          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+            {lateDoses} {lateDoses === 1 ? "atrasada" : "atrasadas"}
+          </span>
+        )}
+      </button>
+
       {upcoming.length > 0 && (
         <section className="space-y-3">
           <h3 className="font-semibold">Próximos dias</h3>
@@ -196,6 +252,7 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, cardHandlers 
         </section>
       )}
       <BirthdaysDialog open={birthdaysOpen} onOpenChange={setBirthdaysOpen} />
+      <MedsDialog open={medsOpen} onOpenChange={setMedsOpen} />
     </div>
   );
 }

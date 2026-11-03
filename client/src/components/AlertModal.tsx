@@ -7,9 +7,11 @@ interface AlertModalProps {
   alert: AlertItem | null;
   onDismiss: () => void;
   onSnooze: () => void;
+  /** remédio: marcar a dose como tomada */
+  onTaken?: () => void;
 }
 
-export function AlertModal({ alert, onDismiss, onSnooze }: AlertModalProps) {
+export function AlertModal({ alert, onDismiss, onSnooze, onTaken }: AlertModalProps) {
   return (
     <Dialog open={!!alert} onOpenChange={(o) => !o && onDismiss()}>
       <DialogContent className="sm:max-w-sm border-t-8 border-t-accent text-center" data-testid="dialog-alert">
@@ -43,9 +45,15 @@ export function AlertModal({ alert, onDismiss, onSnooze }: AlertModalProps) {
           <Button variant="outline" onClick={onSnooze} data-testid="button-alert-snooze">
             Adiar 5 min
           </Button>
-          <Button onClick={onDismiss} data-testid="button-alert-dismiss">
-            Entendi
-          </Button>
+          {alert?.dose && onTaken ? (
+            <Button onClick={onTaken} data-testid="button-alert-taken">
+              Tomei ✓
+            </Button>
+          ) : (
+            <Button onClick={onDismiss} data-testid="button-alert-dismiss">
+              Entendi
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -25,6 +25,8 @@ export interface Activity {
   reminderMinutesBefore?: number;
   reminderVoiceText?: string;
   reminderVoiceGender?: "male" | "female";
+  /** filho para quem é o compromisso (opcional) */
+  childId?: string;
   /** dias da semana em que repete (0 = domingo ... 6 = sábado); vazio = não repete */
   repeatDays?: number[];
   /** dias (AAAA-MM-DD) em que uma atividade recorrente foi marcada como feita */
@@ -47,6 +49,7 @@ interface ActivityRow {
   reminder_date_time: string | null;
   reminder_minutes_before: number | null;
   repeat_days?: number[] | null;
+  child_id?: string | null;
   completed_dates?: string[] | null;
   reminder_voice_text: string | null;
   reminder_voice_gender: "male" | "female" | null;
@@ -67,6 +70,7 @@ function fromRow(row: ActivityRow): Activity {
     reminderDateTime: row.reminder_date_time ? new Date(row.reminder_date_time) : undefined,
     reminderMinutesBefore: row.reminder_minutes_before ?? undefined,
     repeatDays: row.repeat_days?.length ? row.repeat_days : undefined,
+    childId: row.child_id ?? undefined,
     completedDates: row.completed_dates ?? [],
     reminderVoiceText: row.reminder_voice_text ?? undefined,
     reminderVoiceGender: row.reminder_voice_gender ?? undefined,
@@ -97,6 +101,7 @@ function toRow(input: ActivityInput) {
     reminder_minutes_before: input.reminderEnabled ? minutes : null,
     // Só envia quando o formulário informou (evita erro se a coluna ainda não existir).
     ...(input.repeatDays !== undefined ? { repeat_days: input.repeatDays.length ? input.repeatDays : null } : {}),
+    ...(input.childId !== undefined ? { child_id: input.childId || null } : {}),
     reminder_voice_text:
       input.reminderEnabled && input.reminderType === "voice" ? input.reminderVoiceText || null : null,
     reminder_voice_gender:
@@ -456,5 +461,294 @@ export async function endCycle(id: string, date: Date) {
 
 export async function deleteCycle(id: string) {
   const { error } = await supabase.from("menstrual_cycles").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// =============================================================
+// Filhos
+// =============================================================
+
+export interface Child {
+  id: string;
+  name: string;
+  birthDate?: string; // AAAA-MM-DD
+  school?: string;
+  schoolGrade?: string;
+  pediatrician?: string;
+  pediatricianPhone?: string;
+  allergies?: string;
+  clothingSize?: string;
+  shoeSize?: string;
+  diaperSize?: string;
+  notes?: string;
+}
+
+const CHILD_FIELDS: [keyof Child, string][] = [
+  ["name", "name"],
+  ["birthDate", "birth_date"],
+  ["school", "school"],
+  ["schoolGrade", "school_grade"],
+  ["pediatrician", "pediatrician"],
+  ["pediatricianPhone", "pediatrician_phone"],
+  ["allergies", "allergies"],
+  ["clothingSize", "clothing_size"],
+  ["shoeSize", "shoe_size"],
+  ["diaperSize", "diaper_size"],
+  ["notes", "notes"],
+];
+
+export async function fetchChildren(): Promise<Child[]> {
+  const { data, error } = await supabase.from("children").select("*").order("birth_date", { ascending: true });
+  if (error) {
+    if (error.code === "42P01") return []; // etapa 6 ainda não rodada
+    throw error;
+  }
+  return (data ?? []).map((r) => {
+    const c: Record<string, unknown> = { id: r.id };
+    for (const [k, col] of CHILD_FIELDS) if (r[col] != null && r[col] !== "") c[k] = r[col];
+    return c as unknown as Child;
+  });
+}
+
+function childRow(input: Omit<Child, "id">) {
+  const row: Record<string, unknown> = {};
+  for (const [k, col] of CHILD_FIELDS) {
+    const v = (input as Partial<Child>)[k];
+    row[col] = typeof v === "string" ? v.trim() || null : v ?? null;
+  }
+  return row;
+}
+
+export async function saveChild(input: Omit<Child, "id">, id?: string) {
+  const { error } = id
+    ? await supabase.from("children").update(childRow(input)).eq("id", id)
+    : await supabase.from("children").insert(childRow(input));
+  if (error) throw error;
+}
+
+export async function deleteChild(id: string) {
+  const { error } = await supabase.from("children").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// =============================================================
+// Remédios
+// =============================================================
+
+export interface Medication {
+  id: string;
+  name: string;
+  dose?: string;
+  times: string[]; // "08:00"
+  startDate: string; // AAAA-MM-DD
+  endDate?: string;
+  reminder: boolean;
+  childId?: string;
+  notes?: string;
+}
+
+export interface DoseTaken {
+  medicationId: string;
+  day: string;
+  time: string;
+}
+
+export async function fetchMedications(): Promise<Medication[]> {
+  const { data, error } = await supabase.from("medications").select("*").order("created_at");
+  if (error) {
+    if (error.code === "42P01") return [];
+    throw error;
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    dose: (r.dose as string | null) ?? undefined,
+    times: ((r.times as string[] | null) ?? []).slice().sort(),
+    startDate: r.start_date as string,
+    endDate: (r.end_date as string | null) ?? undefined,
+    reminder: r.reminder as boolean,
+    childId: (r.child_id as string | null) ?? undefined,
+    notes: (r.notes as string | null) ?? undefined,
+  }));
+}
+
+export async function saveMedication(input: Omit<Medication, "id">, id?: string) {
+  const row = {
+    name: input.name.trim(),
+    dose: input.dose?.trim() || null,
+    times: [...input.times].sort(),
+    start_date: input.startDate,
+    end_date: input.endDate || null,
+    reminder: input.reminder,
+    child_id: input.childId || null,
+    notes: input.notes?.trim() || null,
+  };
+  const { error } = id
+    ? await supabase.from("medications").update(row).eq("id", id)
+    : await supabase.from("medications").insert(row);
+  if (error) throw error;
+}
+
+export async function deleteMedication(id: string) {
+  const { error } = await supabase.from("medications").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function fetchDoses(sinceDay: string): Promise<DoseTaken[]> {
+  const { data, error } = await supabase
+    .from("medication_doses")
+    .select("medication_id, day, time")
+    .gte("day", sinceDay);
+  if (error) {
+    if (error.code === "42P01") return [];
+    throw error;
+  }
+  return (data ?? []).map((d) => ({ medicationId: d.medication_id as string, day: d.day as string, time: d.time as string }));
+}
+
+export async function setDoseTaken(medicationId: string, day: string, time: string, taken: boolean) {
+  const { error } = taken
+    ? await supabase.from("medication_doses").upsert({ medication_id: medicationId, day, time }, { onConflict: "medication_id,day,time" })
+    : await supabase.from("medication_doses").delete().match({ medication_id: medicationId, day, time });
+  if (error) throw error;
+}
+
+/** Remédio ativo num dia (entre o início e o fim do tratamento). */
+export const medicationActiveOn = (m: Medication, day: string) => m.startDate <= day && (!m.endDate || m.endDate >= day);
+
+// =============================================================
+// Diário do ciclo
+// =============================================================
+
+export interface CycleDay {
+  day: string; // AAAA-MM-DD
+  flow?: string;
+  symptoms: string[];
+  mood?: string;
+  notes?: string;
+}
+
+export async function fetchCycleDays(sinceDay: string): Promise<CycleDay[]> {
+  const { data, error } = await supabase.from("cycle_days").select("*").gte("day", sinceDay).order("day");
+  if (error) {
+    if (error.code === "42P01") return [];
+    throw error;
+  }
+  return (data ?? []).map((r) => ({
+    day: r.day as string,
+    flow: (r.flow as string | null) ?? undefined,
+    symptoms: (r.symptoms as string[] | null) ?? [],
+    mood: (r.mood as string | null) ?? undefined,
+    notes: (r.notes as string | null) ?? undefined,
+  }));
+}
+
+export async function saveCycleDay(d: CycleDay) {
+  const empty = !d.flow && !d.symptoms.length && !d.mood && !d.notes?.trim();
+  const { error } = empty
+    ? await supabase.from("cycle_days").delete().eq("day", d.day)
+    : await supabase
+        .from("cycle_days")
+        .upsert(
+          { day: d.day, flow: d.flow ?? null, symptoms: d.symptoms, mood: d.mood ?? null, notes: d.notes?.trim() || null },
+          { onConflict: "user_id,day" },
+        );
+  if (error) throw error;
+}
+
+// =============================================================
+// Privacidade: baixar e apagar os dados
+// =============================================================
+
+const ALL_TABLES = [
+  "activities",
+  "reminders",
+  "shopping_items",
+  "lists",
+  "shopping_trips",
+  "birthdays",
+  "menstrual_cycles",
+  "cycle_days",
+  "children",
+  "medications",
+  "medication_doses",
+  "push_subscriptions",
+  "watchlist",
+];
+
+/** Junta todos os dados da pessoa num arquivo JSON (direito de acesso, LGPD art. 18). */
+export async function exportMyData(): Promise<Blob> {
+  const { data: userData } = await supabase.auth.getUser();
+  const out: Record<string, unknown> = {
+    exportado_em: new Date().toISOString(),
+    conta: { email: userData.user?.email, criada_em: userData.user?.created_at, perfil: userData.user?.user_metadata },
+  };
+  for (const table of ALL_TABLES) {
+    const { data, error } = await supabase.from(table).select("*");
+    out[table] = error ? `indisponível (${error.message})` : data;
+  }
+  return new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+}
+
+/** Apaga a conta e todos os dados (função delete_my_account no banco). */
+export async function deleteMyAccount() {
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) throw error;
+  await supabase.auth.signOut();
+}
+
+// =============================================================
+// Filmes e séries
+// =============================================================
+
+export type WatchStatus = "quero" | "assistindo" | "assisti";
+
+export interface WatchItem {
+  id: string;
+  title: string;
+  kind: "filme" | "serie";
+  where?: string;
+  status: WatchStatus;
+  rating?: number; // 1 a 5
+  review?: string;
+  watchedAt?: string; // AAAA-MM-DD
+}
+
+export async function fetchWatchlist(): Promise<WatchItem[]> {
+  const { data, error } = await supabase.from("watchlist").select("*").order("created_at", { ascending: false });
+  if (error) {
+    if (error.code === "42P01") return [];
+    throw error;
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    kind: r.kind as "filme" | "serie",
+    where: (r.where_to_watch as string | null) ?? undefined,
+    status: r.status as WatchStatus,
+    rating: (r.rating as number | null) ?? undefined,
+    review: (r.review as string | null) ?? undefined,
+    watchedAt: (r.watched_at as string | null) ?? undefined,
+  }));
+}
+
+export async function saveWatchItem(input: Omit<WatchItem, "id">, id?: string) {
+  const row = {
+    title: input.title.trim(),
+    kind: input.kind,
+    where_to_watch: input.where?.trim() || null,
+    status: input.status,
+    rating: input.rating ?? null,
+    review: input.review?.trim() || null,
+    watched_at: input.watchedAt || null,
+  };
+  const { error } = id
+    ? await supabase.from("watchlist").update(row).eq("id", id)
+    : await supabase.from("watchlist").insert(row);
+  if (error) throw error;
+}
+
+export async function deleteWatchItem(id: string) {
+  const { error } = await supabase.from("watchlist").delete().eq("id", id);
   if (error) throw error;
 }
