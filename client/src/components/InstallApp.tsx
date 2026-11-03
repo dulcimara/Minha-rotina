@@ -1,3 +1,4 @@
+import { useAppIcon } from "@/lib/palettes";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,8 @@ const BENEFITS = [
 ];
 
 function AppIcon({ className }: { className?: string }) {
-  return <img src="/icon-192.png" alt="" className={cn("drop-shadow-md", className)} />;
+  const src = useAppIcon();
+  return <img src={src} alt="" className={cn("drop-shadow-md", className)} />;
 }
 
 /** Um passo ilustrado: número, texto e um "pedacinho de tela" mostrando onde tocar. */

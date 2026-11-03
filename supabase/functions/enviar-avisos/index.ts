@@ -394,6 +394,8 @@ async function run(now = new Date()) {
         tag: item.key,
         silent: meta.alert_mode === "silent",
         url: item.key.startsWith("morning:") ? "/?resumo=1" : "/",
+        // ícone na cor que a pessoa escolheu
+        icon: `/icons/${["rosa", "lavanda", "pessego", "menta", "ceu", "girassol"].includes(meta.palette) ? meta.palette : "rosa"}/icon-192.png`,
       });
       for (const s of userSubs) {
         try {
