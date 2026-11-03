@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronRight, Plus } from "lucide-react";
 import { AppIcon } from "@/components/AppIcons";
+import { ReminderGlyph } from "@/components/ReminderGlyph";
 import { RemindersDialog, byDue, dueLabel, useCompleteReminder } from "@/components/RemindersDialog";
 import { useReminders } from "@/hooks/use-data";
 import { dueState } from "@/lib/lembretes";
@@ -51,7 +52,7 @@ export function RemindersCard() {
                 >
                   <Check className="h-3 w-3 text-primary/60" />
                 </button>
-                <span className="text-lg leading-none">{r.emoji ?? "🔔"}</span>
+                <ReminderGlyph emoji={r.emoji} />
                 <span className="flex-1 min-w-0 text-sm truncate">{r.text}</span>
                 <span className={cn("shrink-0 text-[11px]", isLate ? "text-destructive font-medium" : "text-muted-foreground")}>
                   {dueLabel(r).replace(/^atrasado · era /, "atrasado · ")}
