@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Mode = "entrar" | "cadastrar";
@@ -21,6 +20,8 @@ function translateError(message: string): string {
 export default function Login() {
   const [mode, setMode] = useState<Mode>("entrar");
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,11 +39,13 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
+        if (!name.trim()) throw new Error("Informe seu nome.");
+        if (!accepted) throw new Error("Para criar a conta, aceite a política de privacidade.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { name },
+            data: { name: name.trim(), nickname: nickname.trim() || undefined, privacy_accepted_at: new Date().toISOString() },
             emailRedirectTo: window.location.origin,
           },
         });
@@ -61,10 +64,10 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-hero flex items-center justify-center px-4">
       <Card className="w-full max-w-sm p-6 space-y-6">
         <div className="text-center space-y-2">
-          <Sparkles className="h-8 w-8 text-primary mx-auto" />
+          <img src="/icon-192.png" alt="" className="h-16 w-16 rounded-2xl mx-auto shadow-md" />
           <h1 className="text-2xl font-display font-semibold">Minha Rotina</h1>
           <p className="text-sm text-muted-foreground">
             {mode === "entrar" ? "Entre para ver sua rotina" : "Crie sua conta gratuita"}
@@ -73,16 +76,32 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "cadastrar" && (
-            <div className="space-y-2">
-              <Label htmlFor="name">Seu nome</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Como quer ser chamada?"
-                autoComplete="name"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="name">Seu nome *</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex.: Maria Aparecida Souza"
+                  autoComplete="name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nickname">
+                  Como quer ser chamada? <span className="text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <Input
+                  id="nickname"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="Ex.: Cida"
+                  autoComplete="nickname"
+                />
+                <p className="text-xs text-muted-foreground">É assim que o app vai te chamar nos avisos falados.</p>
+              </div>
+            </>
           )}
 
           <div className="space-y-2">
@@ -112,10 +131,29 @@ export default function Login() {
             />
           </div>
 
+          {mode === "cadastrar" && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-[hsl(var(--primary))]"
+                checked={accepted}
+                onChange={(e) => setAccepted(e.target.checked)}
+                data-testid="checkbox-privacy"
+              />
+              <span>
+                Li e aceito a{" "}
+                <a href="/privacidade" target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                  política de privacidade
+                </a>
+                .
+              </span>
+            </label>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
           {info && <p className="text-sm text-primary">{info}</p>}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || (mode === "cadastrar" && (!name.trim() || !accepted))}>
             {loading ? "Aguarde..." : mode === "entrar" ? "Entrar" : "Criar conta"}
           </Button>
         </form>

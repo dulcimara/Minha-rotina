@@ -40,6 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/** Como chamar a pessoa nos avisos: o apelido escolhido ou, se não houver, o primeiro nome. */
+export function displayName(user: User | null | undefined): string | undefined {
+  const meta = (user?.user_metadata ?? {}) as { name?: string; nickname?: string };
+  const nick = meta.nickname?.trim();
+  if (nick) return nick;
+  return meta.name?.trim().split(/\s+/)[0] || undefined;
+}
+
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth precisa estar dentro de <AuthProvider>");

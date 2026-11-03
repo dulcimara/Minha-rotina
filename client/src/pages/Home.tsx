@@ -1,134 +1,109 @@
 import { useState } from "react";
-import { format, isToday, isSameDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Card } from "@/components/ui/card";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ActivityCard } from "@/components/ActivityCard";
-import { DayCalendar } from "@/components/DayCalendar";
-import { VoiceButton } from "@/components/VoiceButton";
-import { VoiceCommandDialog } from "@/components/VoiceCommandDialog";
-import { ActivityFormDialog } from "@/components/ActivityFormDialog";
-import { EmptyState } from "@/components/EmptyState";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, CalendarX, Sparkles, Bell, LogOut, X } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
+import { ActivityFormDialog } from "@/components/ActivityFormDialog";
+import { VoiceAssistant } from "@/components/VoiceAssistant";
+import { AlertModal } from "@/components/AlertModal";
+import { MonthlyShoppingPrompt } from "@/components/MonthlyShoppingPrompt";
+import { TodayTab } from "@/components/tabs/TodayTab";
+import { AgendaTab } from "@/components/tabs/AgendaTab";
+import { ListsTab, MOVIES } from "@/components/tabs/ListsTab";
+import { CycleTab } from "@/components/tabs/CycleTab";
+import { Baby, CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, Plus, Settings } from "lucide-react";
+import { ChildrenDialog } from "@/components/ChildrenDialog";
+import { Onboarding } from "@/components/Onboarding";
 import { useAuth } from "@/hooks/use-auth";
+import { SettingsDialog } from "@/components/SettingsDialog";
+import { useToast } from "@/hooks/use-toast";
+import { keys, refresh, useActivities, useUserId } from "@/hooks/use-data";
+import { useAlerts } from "@/hooks/use-alerts";
+import { queryClient } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import {
+  createActivity,
+  deleteActivity,
+  setActivityCompleted,
+  setOccurrenceCompleted,
+  setDoseTaken,
+  updateActivity,
   type Activity,
   type ActivityInput,
-  fetchActivities,
-  createActivity,
-  updateActivity,
-  setActivityCompleted,
-  deleteActivity,
-  fetchReminders,
-  createReminder,
-  deleteReminder,
 } from "@/lib/data";
 
-const reminderSchema = z.object({
-  text: z.string().trim().min(1, "Escreva o lembrete"),
-});
+export type TabName = "hoje" | "agenda" | "compras" | "ciclo";
 
-type FormActivity = {
-  title: string;
-  description: string;
-  date: Date;
-  time: string;
-  category: string;
-  reminderEnabled: boolean;
-  reminderType: "text" | "voice";
-  reminderDateTime: Date;
-  reminderVoiceText?: string;
-  reminderVoiceGender?: "male" | "female";
-};
-
-// Junta a data escolhida no calendário com o horário digitado.
-function toActivityInput(form: FormActivity): ActivityInput {
-  const [hours, minutes] = form.time.split(":").map(Number);
-  const date = new Date(form.date);
-  date.setHours(hours || 0, minutes || 0, 0, 0);
-  return {
-    title: form.title.trim(),
-    description: form.description.trim() || undefined,
-    date,
-    category: form.category,
-    reminderEnabled: form.reminderEnabled,
-    reminderType: form.reminderType,
-    reminderDateTime: form.reminderEnabled ? form.reminderDateTime : undefined,
-    reminderVoiceText: form.reminderVoiceText,
-    reminderVoiceGender: form.reminderVoiceGender,
-  };
-}
+const NAV: { tab: TabName; label: string; icon: typeof HomeIcon }[] = [
+  { tab: "hoje", label: "Hoje", icon: HomeIcon },
+  { tab: "agenda", label: "Agenda", icon: CalendarDays },
+  { tab: "compras", label: "Listas", icon: ListChecks },
+  { tab: "ciclo", label: "Ciclo", icon: Droplet },
+];
 
 export default function Home() {
-  const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const userId = user?.id;
+  const userId = useUserId();
+  const { data: activities = [], isLoading } = useActivities();
+  const alerts = useAlerts();
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [voiceDialogOpen, setVoiceDialogOpen] = useState(false);
-  const [voiceState, setVoiceState] = useState<"listening" | "processing" | "done">("done");
-  const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [formKey, setFormKey] = useState(0);
-  const [editing, setEditing] = useState<Activity | null>(null);
-  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [tab, setTab] = useState<TabName>("hoje");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { user } = useAuth();
+  const onboarded = Boolean((user?.user_metadata as { onboarded_at?: string } | undefined)?.onboarded_at);
+  const [childrenOpen, setChildrenOpen] = useState(false);
+  /** lista aberta na aba Listas (vazio = lista de compras) */
+  const [listId, setListId] = useState<string | undefined>();
+  const [voice, setVoice] = useState<{ open: boolean; mode: "voice" | "type"; context?: "shopping" }>({
+    open: false,
+    mode: "voice",
+  });
+  const [form, setForm] = useState<{ open: boolean; key: number; activity: Activity | null; date?: Date }>({
+    open: false,
+    key: 0,
+    activity: null,
+  });
 
   const showError = (title: string) => (error: Error) =>
     toast({ title, description: error.message, variant: "destructive" });
 
-  // ---------- Dados ----------
+  // ---------- Ações das atividades ----------
 
-  const activitiesKey = ["activities", userId];
-  const remindersKey = ["reminders", userId];
-
-  const { data: activities = [], isLoading: loadingActivities } = useQuery({
-    queryKey: activitiesKey,
-    queryFn: fetchActivities,
-    enabled: !!userId,
-  });
-
-  const { data: reminders = [] } = useQuery({
-    queryKey: remindersKey,
-    queryFn: () => fetchReminders(3),
-    enabled: !!userId,
-  });
-
-  const refreshActivities = () => queryClient.invalidateQueries({ queryKey: activitiesKey });
-  const refreshReminders = () => queryClient.invalidateQueries({ queryKey: remindersKey });
-
-  const saveActivityMutation = useMutation({
-    mutationFn: async ({ id, input }: { id?: string; input: ActivityInput }) => {
-      if (id) await updateActivity(id, input);
-      else await createActivity(input);
+  const saveMutation = useMutation({
+    mutationFn: async ({ id, input }: { id?: string; input: ActivityInput }) =>
+      id ? updateActivity(id, input) : createActivity(input),
+    onSuccess: (_d, vars) => {
+      refresh(userId, "activities");
+      toast({ title: vars.id ? "Compromisso atualizado!" : "Compromisso salvo!" });
     },
-    onSuccess: (_data, vars) => {
-      refreshActivities();
-      toast({ title: vars.id ? "Atividade atualizada!" : "Atividade salva!" });
-    },
-    onError: showError("Não foi possível salvar a atividade"),
+    onError: showError("Não foi possível salvar"),
   });
+
+  // Ids de ocorrências de atividades recorrentes vêm como "<id>@AAAA-MM-DD".
+  const splitId = (id: string) => {
+    const [baseId, day] = id.split("@");
+    return { baseId, day };
+  };
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
-      setActivityCompleted(id, completed),
-    onMutate: async ({ id, completed }) => {
-      // Marca na tela na hora, sem esperar a resposta do servidor.
-      queryClient.setQueryData<Activity[]>(activitiesKey, (old) =>
-        old?.map((a) => (a.id === id ? { ...a, completed } : a)),
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) => {
+      const { baseId, day } = splitId(id);
+      if (!day) return setActivityCompleted(baseId, completed);
+      const current = activities.find((a) => a.id === baseId)?.completedDates ?? [];
+      return setOccurrenceCompleted(baseId, day, completed, current);
+    },
+    onMutate: ({ id, completed }) => {
+      const { baseId, day } = splitId(id);
+      queryClient.setQueryData<Activity[]>(keys.activities(userId), (old) =>
+        old?.map((a) => {
+          if (a.id !== baseId) return a;
+          if (!day) return { ...a, completed };
+          const dates = a.completedDates ?? [];
+          return { ...a, completedDates: completed ? [...dates, day] : dates.filter((d) => d !== day) };
+        }),
       );
     },
     onError: (error: Error) => {
-      refreshActivities();
+      refresh(userId, "activities");
       showError("Não foi possível atualizar")(error);
     },
   });
@@ -136,316 +111,169 @@ export default function Home() {
   const deleteMutation = useMutation({
     mutationFn: deleteActivity,
     onSuccess: () => {
-      refreshActivities();
-      toast({ title: "Atividade excluída" });
+      refresh(userId, "activities");
+      toast({ title: "Compromisso excluído" });
     },
     onError: showError("Não foi possível excluir"),
   });
 
-  const reminderMutation = useMutation({
-    mutationFn: createReminder,
-    onSuccess: () => {
-      refreshReminders();
-      setReminderDialogOpen(false);
-      reminderForm.reset();
-      toast({ title: "Lembrete cadastrado com sucesso!" });
-    },
-    onError: showError("Não foi possível salvar o lembrete"),
-  });
-
-  const deleteReminderMutation = useMutation({
-    mutationFn: deleteReminder,
-    onSuccess: refreshReminders,
-    onError: showError("Não foi possível apagar o lembrete"),
-  });
-
-  const reminderForm = useForm({
-    resolver: zodResolver(reminderSchema),
-    defaultValues: { text: "" },
-  });
-
-  // ---------- Ações ----------
-
-  const openNewActivity = () => {
-    setEditing(null);
-    setFormKey((k) => k + 1);
-    setFormDialogOpen(true);
-  };
-
-  const openEditActivity = (id: string) => {
-    const activity = activities.find((a) => a.id === id);
-    if (!activity) return;
-    setEditing(activity);
-    setFormKey((k) => k + 1);
-    setFormDialogOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    const activity = activities.find((a) => a.id === id);
-    if (window.confirm(`Excluir "${activity?.title ?? "esta atividade"}"?`)) {
-      deleteMutation.mutate(id);
-    }
+  const openNew = (date?: Date) => setForm((f) => ({ open: true, key: f.key + 1, activity: null, date }));
+  const openEdit = (id: string) => {
+    const activity = activities.find((a) => a.id === splitId(id).baseId);
+    if (activity) setForm((f) => ({ open: true, key: f.key + 1, activity }));
   };
 
   const cardHandlers = {
-    onEdit: openEditActivity,
-    onDelete: handleDelete,
+    onEdit: openEdit,
+    onDelete: (id: string) => {
+      const { baseId } = splitId(id);
+      const a = activities.find((x) => x.id === baseId);
+      const msg = a?.repeatDays?.length
+        ? `Excluir "${a.title}" e todas as repetições?`
+        : `Excluir "${a?.title ?? "este compromisso"}"?`;
+      if (window.confirm(msg)) deleteMutation.mutate(baseId);
+    },
     onToggleComplete: (id: string, completed: boolean) => toggleMutation.mutate({ id, completed }),
   };
 
-  // ---------- Filtros ----------
-
-  const selectedDateActivities = activities.filter((a) => isSameDay(a.date, selectedDate));
-  const todayActivities = activities.filter((a) => isToday(a.date));
-  const activityDates = activities.map((a) => a.date);
-  const firstName = (user?.user_metadata?.name as string | undefined)?.split(" ")[0];
-
-  const handleVoiceRecording = (isRecording: boolean) => {
-    if (isRecording) {
-      setVoiceDialogOpen(true);
-      setVoiceState("listening");
-
-      setTimeout(() => {
-        setVoiceState("processing");
-        setTimeout(() => {
-          setVoiceState("done");
-        }, 1500);
-      }, 2000);
-    }
-  };
+  const openVoice = (mode: "voice" | "type" = "voice", context?: "shopping") => setVoice({ open: true, mode, context });
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <h1 className="text-xl font-display font-semibold" data-testid="text-app-title">
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
+        <div className="container max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+          <h1 className="text-xl font-display font-semibold text-primary flex items-center gap-2" data-testid="text-app-title">
+            <img src="/icon-192.png" alt="" className="h-7 w-7 rounded-lg" />
             Minha Rotina
           </h1>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={openNewActivity}
-              data-testid="button-add-activity"
-            >
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => openNew()} data-testid="button-add-activity" title="Novo compromisso">
               <Plus className="h-5 w-5" />
-              <span className="sr-only">Adicionar atividade</span>
+              <span className="sr-only">Novo compromisso</span>
             </Button>
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => signOut()}
-              data-testid="button-logout"
-              title="Sair"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="sr-only">Sair</span>
+            <Button variant="ghost" size="icon" onClick={() => setChildrenOpen(true)} data-testid="button-children" title="Meus filhos">
+              <Baby className="h-5 w-5" />
+              <span className="sr-only">Meus filhos</span>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} data-testid="button-settings" title="Configurações">
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Configurações</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 pb-24">
-        <Tabs defaultValue="today" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6" data-testid="tabs-view">
-            <TabsTrigger value="today" data-testid="tab-today">Hoje</TabsTrigger>
-            <TabsTrigger value="calendar" data-testid="tab-calendar">Calendário</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="today" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                  <div>
-                    <h2 className="text-2xl font-semibold capitalize" data-testid="text-today-title">
-                      {format(new Date(), "EEEE", { locale: ptBR })}
-                    </h2>
-                    <p className="text-sm text-muted-foreground" data-testid="text-today-date">
-                      {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-sm text-muted-foreground">
-                  {firstName ? `Olá, ${firstName}! ` : ""}
-                  Você tem {todayActivities.length}{" "}
-                  {todayActivities.length === 1 ? "atividade" : "atividades"} para hoje
-                </p>
-              </Card>
-
-              <Card className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Bell className="h-6 w-6 text-primary" />
-                    <h2 className="text-xl font-semibold">Lembretes</h2>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => setReminderDialogOpen(true)}
-                    data-testid="button-new-reminder"
-                  >
-                    Novo
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {reminders.length > 0 ? (
-                    reminders.map((reminder) => (
-                      <div
-                        key={reminder.id}
-                        className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 text-sm"
-                        data-testid={`text-reminder-${reminder.id}`}
-                      >
-                        <span>{reminder.text}</span>
-                        <button
-                          type="button"
-                          onClick={() => deleteReminderMutation.mutate(reminder.id)}
-                          className="text-muted-foreground hover:text-foreground"
-                          title="Apagar lembrete"
-                        >
-                          <X className="h-4 w-4" />
-                          <span className="sr-only">Apagar lembrete</span>
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">Nenhum lembrete cadastrado</p>
-                  )}
-                </div>
-              </Card>
-            </div>
-
-            <div className="space-y-3">
-              {loadingActivities ? (
-                <p className="text-sm text-muted-foreground">Carregando atividades...</p>
-              ) : todayActivities.length > 0 ? (
-                todayActivities.map((activity) => (
-                  <ActivityCard key={activity.id} {...activity} {...cardHandlers} />
-                ))
-              ) : (
-                <EmptyState
-                  icon={CalendarX}
-                  title="Nenhuma atividade para hoje"
-                  description="Você não tem nenhuma atividade agendada para hoje. Adicione uma no botão +!"
-                  actionLabel="Adicionar atividade"
-                  onAction={openNewActivity}
-                />
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="calendar" className="space-y-6">
-            <DayCalendar
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              activityDates={activityDates}
-            />
-
-            <div>
-              <h3 className="font-semibold mb-3" data-testid="text-selected-date">
-                {format(selectedDate, "d 'de' MMMM", { locale: ptBR })}
-              </h3>
-              <div className="space-y-3">
-                {selectedDateActivities.length > 0 ? (
-                  selectedDateActivities.map((activity) => (
-                    <ActivityCard key={activity.id} {...activity} {...cardHandlers} />
-                  ))
-                ) : (
-                  <EmptyState
-                    icon={CalendarX}
-                    title="Nenhuma atividade"
-                    description="Não há atividades agendadas para esta data."
-                    actionLabel="Adicionar atividade"
-                    onAction={openNewActivity}
-                  />
-                )}
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+      <main className="container max-w-2xl mx-auto px-4 py-5 pb-32">
+        {tab === "hoje" && (
+          <TodayTab
+            activities={activities}
+            loading={isLoading}
+            onAdd={() => openNew()}
+            onNavigate={setTab}
+            cardHandlers={cardHandlers}
+          />
+        )}
+        {tab === "agenda" && (
+          <AgendaTab activities={activities} onSave={(input) => saveMutation.mutate({ input })} />
+        )}
+        {tab === "compras" && (
+          <ListsTab listId={listId} onSelectList={setListId} onVoice={() => openVoice("voice", "shopping")} />
+        )}
+        {tab === "ciclo" && <CycleTab />}
       </main>
 
-      <div className="fixed bottom-6 right-6 z-40" data-testid="floating-voice-button">
-        <VoiceButton
-          onRecordingChange={handleVoiceRecording}
-          onTranscript={(text) => console.log("Transcript:", text)}
-        />
-      </div>
+      {/* Barra de navegação inferior com o microfone no centro */}
+      <nav
+        className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="relative max-w-2xl mx-auto grid grid-cols-5 h-16">
+          {NAV.slice(0, 2).map((item) => (
+            <NavButton key={item.tab} {...item} active={tab === item.tab} onClick={() => setTab(item.tab)} />
+          ))}
+          <div className="flex justify-center">
+            <button
+              onClick={() => openVoice("voice", tab === "compras" && listId !== MOVIES ? "shopping" : undefined)}
+              className="-mt-7 h-16 w-16 rounded-full bg-mic text-white shadow-[0_8px_20px_-6px_hsl(320_60%_50%/0.6)] ring-4 ring-background flex items-center justify-center active:scale-95 transition-transform"
+              data-testid="button-voice-recording"
+            >
+              <Mic className="h-7 w-7" />
+              <span className="sr-only">Falar com o app</span>
+            </button>
+          </div>
+          {NAV.slice(2).map((item) => (
+            <NavButton key={item.tab} {...item} active={tab === item.tab} onClick={() => setTab(item.tab)} />
+          ))}
+        </div>
+      </nav>
 
-      <VoiceCommandDialog
-        open={voiceDialogOpen}
-        onOpenChange={setVoiceDialogOpen}
-        isListening={voiceState === "listening"}
-        transcript="adicionar consulta médica dia 12/12/2025 às 16h"
-        isProcessing={voiceState === "processing"}
-        onConfirm={() => {
-          setVoiceDialogOpen(false);
-          setVoiceState("done");
-        }}
-        onCancel={() => {
-          setVoiceDialogOpen(false);
-          setVoiceState("done");
-        }}
+      <VoiceAssistant
+        open={voice.open}
+        mode={voice.mode}
+        context={voice.context}
+        listId={voice.context === "shopping" && listId !== MOVIES ? listId : undefined}
+        onOpenChange={(open) => setVoice((v) => ({ ...v, open }))}
       />
 
       <ActivityFormDialog
-        key={formKey}
-        open={formDialogOpen}
-        onOpenChange={setFormDialogOpen}
-        initialData={
-          editing
-            ? {
-                title: editing.title,
-                description: editing.description,
-                date: editing.date,
-                time: format(editing.date, "HH:mm"),
-                category: editing.category,
-                reminderEnabled: editing.reminderEnabled,
-                reminderType: editing.reminderType,
-                reminderDateTime: editing.reminderDateTime,
-                reminderVoiceText: editing.reminderVoiceText,
-                reminderVoiceGender: editing.reminderVoiceGender,
-              }
-            : undefined
-        }
-        onSave={(activity) => {
-          saveActivityMutation.mutate({ id: editing?.id, input: toActivityInput(activity) });
-        }}
+        key={form.key}
+        open={form.open}
+        onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
+        activity={form.activity}
+        defaultDate={form.date}
+        onSave={(input) => saveMutation.mutate({ id: form.activity?.id, input })}
       />
 
-      <Dialog open={reminderDialogOpen} onOpenChange={setReminderDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo Lembrete</DialogTitle>
-          </DialogHeader>
-          <Form {...reminderForm}>
-            <form
-              onSubmit={reminderForm.handleSubmit((data) => reminderMutation.mutate(data.text))}
-              className="space-y-4"
-            >
-              <FormField
-                control={reminderForm.control}
-                name="text"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                      <Input placeholder="O que você precisa lembrar?" {...field} data-testid="input-reminder-text" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="submit" disabled={reminderMutation.isPending} data-testid="button-save-reminder">
-                  Salvar
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      {/* espera o alerta (se houver) ser fechado, para não abrir uma janela sobre a outra */}
+      <Onboarding />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ChildrenDialog open={childrenOpen} onOpenChange={setChildrenOpen} />
+
+      <MonthlyShoppingPrompt paused={!!alerts.current || !onboarded} />
+
+      <AlertModal
+        alert={alerts.current}
+        onDismiss={alerts.dismiss}
+        onSnooze={() => alerts.snooze(5)}
+        onTaken={() => {
+          const d = alerts.current?.dose;
+          if (d) {
+            setDoseTaken(d.medicationId, d.day, d.time, true).then(
+              () => refresh(userId, "doses"),
+              (err: Error) => showError("Não foi possível salvar")(err),
+            );
+          }
+          alerts.dismiss();
+        }}
+      />
     </div>
+  );
+}
+
+function NavButton({
+  label,
+  icon: Icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  icon: typeof HomeIcon;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center justify-center gap-0.5 text-[11px] transition-colors",
+        active ? "text-primary font-semibold" : "text-muted-foreground",
+      )}
+    >
+      <span className={cn("rounded-full px-4 py-1 transition-colors", active && "bg-secondary")}>
+        <Icon className="h-5 w-5" />
+      </span>
+      {label}
+    </button>
   );
 }
