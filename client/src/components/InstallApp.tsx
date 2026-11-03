@@ -14,7 +14,7 @@ const BENEFITS = [
 ];
 
 function AppIcon({ className }: { className?: string }) {
-  return <img src="/icon-192.png" alt="" className={cn("rounded-[22%] shadow-md", className)} />;
+  return <img src="/icon-192.png" alt="" className={cn("drop-shadow-md", className)} />;
 }
 
 /** Um passo ilustrado: número, texto e um "pedacinho de tela" mostrando onde tocar. */
@@ -202,7 +202,7 @@ function StoreHeader() {
       <div className="flex items-center gap-3">
         <AppIcon className="h-16 w-16" />
         <div className="min-w-0">
-          <DialogTitle className="text-xl font-display font-semibold">Minha Rotina</DialogTitle>
+          <DialogTitle className="font-brand text-xl">Minha Rotina</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">Organize o seu dia falando</DialogDescription>
           <p className="text-xs text-muted-foreground mt-0.5">Grátis · sem anúncios · leve</p>
         </div>

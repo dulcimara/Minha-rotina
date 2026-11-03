@@ -67,8 +67,8 @@ export default function Login() {
     <div className="min-h-screen bg-hero flex items-center justify-center px-4">
       <Card className="w-full max-w-sm p-6 space-y-6">
         <div className="text-center space-y-2">
-          <img src="/icon-192.png" alt="" className="h-16 w-16 rounded-2xl mx-auto shadow-md" />
-          <h1 className="text-2xl font-display font-semibold">Minha Rotina</h1>
+          <img src="/icon-192.png" alt="" className="h-20 w-20 mx-auto drop-shadow-[0_10px_18px_rgb(120_40_140/0.3)]" />
+          <h1 className="font-brand text-3xl text-foreground">Minha Rotina</h1>
           <p className="text-sm text-muted-foreground">
             {mode === "entrar" ? "Entre para ver sua rotina" : "Crie sua conta gratuita"}
           </p>
