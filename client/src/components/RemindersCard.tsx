@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Check, ChevronRight, Plus } from "lucide-react";
 import { AppIcon } from "@/components/AppIcons";
 import { ReminderGlyph } from "@/components/ReminderGlyph";
+import { useShareAccess } from "@/lib/sharing";
 import { RemindersDialog, byDue, dueLabel, useCompleteReminder } from "@/components/RemindersDialog";
 import { useReminders } from "@/hooks/use-data";
 import { dueState } from "@/lib/lembretes";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 export function RemindersCard() {
   const { data: all = [] } = useReminders();
   const complete = useCompleteReminder();
+  const access = useShareAccess();
   const [dialog, setDialog] = useState<{ open: boolean; key: number; startNew: boolean }>({ open: false, key: 0, startNew: false });
   const open = (startNew: boolean) => setDialog((d) => ({ open: true, key: d.key + 1, startNew }));
 
@@ -47,13 +49,17 @@ export function RemindersCard() {
                 <button
                   type="button"
                   onClick={() => complete(r)}
+                  disabled={!access.canEdit(r.ownerId, "lembretes", r.id)}
                   className="h-6 w-6 shrink-0 rounded-full border-2 border-primary/50 flex items-center justify-center hover:bg-primary/10"
                   aria-label={`Marcar "${r.text}" como feito`}
                 >
                   <Check className="h-3 w-3 text-primary/60" />
                 </button>
                 <ReminderGlyph emoji={r.emoji} />
-                <span className="flex-1 min-w-0 text-sm truncate">{r.text}</span>
+                <span className="flex-1 min-w-0 text-sm truncate">
+                  {r.text}
+                  {access.sharedBy(r.ownerId) && <span className="text-xs text-muted-foreground"> · de {access.sharedBy(r.ownerId)}</span>}
+                </span>
                 <span className={cn("shrink-0 text-[11px]", isLate ? "text-destructive font-medium" : "text-muted-foreground")}>
                   {dueLabel(r).replace(/^atrasado · era /, "atrasado · ")}
                 </span>

@@ -1,3 +1,6 @@
+import { Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ShareDialog } from "@/components/ShareDialog";
 import { useState } from "react";
 import { addDays } from "date-fns";
 import { Card } from "@/components/ui/card";
@@ -22,6 +25,7 @@ export function AgendaTab({ activities, onSave }: AgendaTabProps) {
   // Bolinha nos dias que já têm compromisso (inclui as repetições).
   const marked = occurrencesBetween(activities, addDays(new Date(), -62), addDays(new Date(), 186)).map((o) => o.date);
 
+  const [shareKey, setShareKey] = useState(0);
   return (
     <div className="space-y-4">
       <KindHeader
@@ -30,6 +34,10 @@ export function AgendaTab({ activities, onSave }: AgendaTabProps) {
         title="Agendar compromisso"
         description="Escolha o dia no calendário e preencha os detalhes."
       />
+      <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setShareKey((k) => k + 1)} data-testid="button-share-agenda">
+        <Users className="h-4 w-4" /> Compartilhar minha agenda
+      </Button>
+      {shareKey > 0 && <ShareDialog key={shareKey} open onOpenChange={(o) => !o && setShareKey(0)} area="agenda" />}
       <Card className="p-4">
         <ActivityForm
           key={formKey}

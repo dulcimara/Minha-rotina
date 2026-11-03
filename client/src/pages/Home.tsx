@@ -209,7 +209,7 @@ export default function Home() {
           ))}
           <div className="flex justify-center">
             <button
-              onClick={() => openVoice("voice", tab === "compras" && listId !== MOVIES ? "shopping" : undefined)}
+              onClick={() => openVoice("voice", tab === "compras" && listId !== MOVIES && !listId?.startsWith("shared:") ? "shopping" : undefined)}
               className="-mt-7 h-16 w-16 rounded-full bg-mic text-white shadow-[0_8px_20px_-6px_hsl(320_60%_50%/0.6)] ring-4 ring-background flex items-center justify-center active:scale-95 transition-transform"
               data-testid="button-voice-recording"
             >
@@ -227,7 +227,7 @@ export default function Home() {
         open={voice.open}
         mode={voice.mode}
         context={voice.context}
-        listId={voice.context === "shopping" && listId !== MOVIES ? listId : undefined}
+        listId={voice.context === "shopping" && listId !== MOVIES && !listId?.startsWith("shared:") ? listId : undefined}
         onOpenChange={(open) => setVoice((v) => ({ ...v, open }))}
       />
 

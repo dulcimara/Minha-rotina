@@ -29,10 +29,11 @@ import {
   ShoppingCart,
   Trash2,
   X,
+  Users,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { keys, refresh, useLists, useShopping, useTrips, useUserId } from "@/hooks/use-data";
+import { keys, refresh, useLists, useSharedLists, useShopping, useTrips, useUserId } from "@/hooks/use-data";
 import {
   addShoppingItems,
   clearCheckedShoppingItems,
@@ -48,6 +49,8 @@ import {
   type ShoppingItem,
 } from "@/lib/data";
 import { ItemAutocomplete } from "@/components/ItemAutocomplete";
+import { ShareDialog } from "@/components/ShareDialog";
+import { useShareAccess } from "@/lib/sharing";
 import { cn } from "@/lib/utils";
 
 interface ListsTabProps {
@@ -199,29 +202,37 @@ function ItemRow({
   onQuantity,
   onRemove,
   showQuantity,
+  readOnly,
 }: {
   item: ShoppingItem;
   onToggle: (checked: boolean) => void;
   onQuantity: (q: string) => void;
   onRemove: () => void;
   showQuantity: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2.5 py-2.5">
       <Checkbox
         checked={item.checked}
         onCheckedChange={(c) => onToggle(!!c)}
+        disabled={readOnly}
         className="h-5 w-5"
         data-testid={`checkbox-item-${item.id}`}
       />
       <span className={cn("flex-1 min-w-0 break-words", item.checked && "line-through text-muted-foreground")}>{item.name}</span>
-      {showQuantity && (
-        <QuantityStepper value={item.quantity ?? ""} onChange={onQuantity} label={`Quantidade de ${item.name}`} />
+      {showQuantity &&
+        (readOnly ? (
+          item.quantity ? <span className="text-sm text-muted-foreground">{item.quantity}</span> : null
+        ) : (
+          <QuantityStepper value={item.quantity ?? ""} onChange={onQuantity} label={`Quantidade de ${item.name}`} />
+        ))}
+      {!readOnly && (
+        <button onClick={onRemove} className="text-muted-foreground hover:text-foreground p-1" title="Apagar">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Apagar {item.name}</span>
+        </button>
       )}
-      <button onClick={onRemove} className="text-muted-foreground hover:text-foreground p-1" title="Apagar">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Apagar {item.name}</span>
-      </button>
     </div>
   );
 }
@@ -232,16 +243,22 @@ function ListItems({
   isShopping,
   onVoice,
   onListDeleted,
+  ownerId,
+  readOnly,
 }: {
   listId?: string;
   list?: CustomList;
   isShopping: boolean;
   onVoice: () => void;
   onListDeleted: () => void;
+  /** lista de outra pessoa, compartilhada comigo */
+  ownerId?: string;
+  readOnly?: boolean;
 }) {
+  const shared = Boolean(ownerId);
   const { toast } = useToast();
   const userId = useUserId();
-  const { data: items = [], isLoading } = useShopping(listId);
+  const { data: items = [], isLoading } = useShopping(listId, ownerId);
   const { data: trips = [] } = useTrips();
   // O que a pessoa já comprou, do mais recente para o mais antigo (para o autocompletar)
   const historyNames = useMemo(() => trips.flatMap((t) => t.items.map((i) => i.name)), [trips]);
@@ -251,7 +268,7 @@ function ListItems({
   const [tripOpen, setTripOpen] = useState(false);
   const [tripKey, setTripKey] = useState(0);
   const [showTrips, setShowTrips] = useState(false);
-  const cacheKey = keys.shopping(userId, listId);
+  const cacheKey = keys.shopping(userId, listId, ownerId);
 
   const patchCache = (fn: (old: ShoppingItem[]) => ShoppingItem[]) =>
     queryClient.setQueryData<ShoppingItem[]>(cacheKey, (old) => (old ? fn(old) : old));
@@ -267,6 +284,7 @@ function ListItems({
       await addShoppingItems(
         names.map((n, i) => ({ name: n.charAt(0).toUpperCase() + n.slice(1), quantity: i === 0 && names.length === 1 ? qty : undefined })),
         listId,
+        ownerId,
       );
       refresh(userId, "shopping");
     } catch (err) {
@@ -284,7 +302,7 @@ function ListItems({
 
   const setAll = (checked: boolean) => {
     patchCache((old) => old.map((i) => ({ ...i, checked })));
-    setAllItemsChecked(checked, listId).catch((err) => {
+    setAllItemsChecked(checked, listId, ownerId).catch((err) => {
       refresh(userId, "shopping");
       fail(toast, "Não foi possível atualizar")(err);
     });
@@ -331,6 +349,9 @@ function ListItems({
 
   return (
     <div className="space-y-4">
+      {readOnly ? (
+        <p className="rounded-xl bg-secondary/60 px-3 py-2 text-xs text-secondary-foreground">Você pode ver esta lista, mas não alterar.</p>
+      ) : (
       <Card className="p-4 space-y-3">
         <form onSubmit={add} className="flex gap-2">
           {isShopping ? (
@@ -358,9 +379,11 @@ function ListItems({
               <BookOpen className="h-4 w-4" /> Catálogo
             </Button>
           )}
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={onVoice}>
-            <Mic className="h-4 w-4" /> Falar
-          </Button>
+          {!shared && (
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={onVoice}>
+              <Mic className="h-4 w-4" /> Falar
+            </Button>
+          )}
           {items.length > 0 && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAll(!allDone)} data-testid="button-check-all">
               <CheckCheck className="h-4 w-4" /> {allDone ? "Desmarcar todos" : "Marcar todos"}
@@ -368,6 +391,7 @@ function ListItems({
           )}
         </div>
       </Card>
+      )}
 
       {list?.temporary && allDone && (
         <Card className="p-4 flex items-center gap-3 bg-hero border-0">
@@ -394,6 +418,7 @@ function ListItems({
                   key={i.id}
                   item={i}
                   showQuantity={isShopping}
+                  readOnly={readOnly}
                   onToggle={(c) => toggle(i, c)}
                   onQuantity={(q) => quantity(i, q)}
                   onRemove={() => remove(i)}
@@ -408,12 +433,12 @@ function ListItems({
                 <h3 className="text-sm font-semibold text-muted-foreground">
                   {isShopping ? "No carrinho" : "Feitos"} ({done.length})
                 </h3>
-                {!isShopping && (
+                {!isShopping && !readOnly && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="gap-1 text-muted-foreground"
-                    onClick={() => clearCheckedShoppingItems(listId).then(() => refresh(userId, "shopping"), fail(toast, "Não foi possível limpar"))}
+                    onClick={() => clearCheckedShoppingItems(listId, ownerId).then(() => refresh(userId, "shopping"), fail(toast, "Não foi possível limpar"))}
                   >
                     <Trash2 className="h-4 w-4" /> Limpar
                   </Button>
@@ -425,6 +450,7 @@ function ListItems({
                     key={i.id}
                     item={i}
                     showQuantity={isShopping}
+                    readOnly={readOnly}
                     onToggle={(c) => toggle(i, c)}
                     onQuantity={(q) => quantity(i, q)}
                     onRemove={() => remove(i)}
@@ -435,7 +461,7 @@ function ListItems({
           )}
 
           <div className="grid gap-2">
-            {isShopping && done.length > 0 && (
+            {isShopping && !shared && done.length > 0 && (
               <Button
                 className="w-full gap-2"
                 onClick={() => {
@@ -456,7 +482,7 @@ function ListItems({
         </>
       )}
 
-      {isShopping && trips.length > 0 && (
+      {isShopping && !shared && trips.length > 0 && (
         <Card className="p-4">
           <button className="w-full flex items-center justify-between" onClick={() => setShowTrips((v) => !v)}>
             <h3 className="font-semibold flex items-center gap-2">
@@ -481,7 +507,7 @@ function ListItems({
         </Card>
       )}
 
-      {list && (
+      {list && !shared && (
         <Button variant="ghost" className="w-full gap-2 text-destructive" onClick={removeList}>
           <Trash2 className="h-4 w-4" /> Apagar esta lista
         </Button>
@@ -493,11 +519,11 @@ function ListItems({
           onOpenChange={setCatalogOpen}
           inList={items.map((i) => i.name)}
           onAdd={(names) =>
-            addShoppingItems(names).then(() => refresh(userId, "shopping"), fail(toast, "Não foi possível adicionar"))
+            addShoppingItems(names, undefined, ownerId).then(() => refresh(userId, "shopping"), fail(toast, "Não foi possível adicionar"))
           }
         />
       )}
-      {isShopping && <TripDialog key={tripKey} open={tripOpen} onOpenChange={setTripOpen} bought={done} />}
+      {isShopping && !shared && <TripDialog key={tripKey} open={tripOpen} onOpenChange={setTripOpen} bought={done} />}
     </div>
   );
 }
@@ -509,8 +535,27 @@ function ListItems({
 /** Valor especial de "lista aberta" para Filmes e séries. */
 export const MOVIES = "filmes";
 
+/** Lista de outra pessoa aberta: "shared:<dona>:<compras ou id da lista>" */
+export const sharedListKey = (ownerId: string, key: string) => `shared:${ownerId}:${key}`;
+
 export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
   const { data: lists = [] } = useLists();
+  const { data: sharedLists = [] } = useSharedLists();
+  const access = useShareAccess();
+  const [shareOpen, setShareOpen] = useState<{ open: boolean; key: number }>({ open: false, key: 0 });
+  // Listas compartilhadas comigo: a de compras de cada pessoa (se ela compartilhou) e as outras listas dela
+  const sharedChips = useMemo(() => {
+    const out: { key: string; ownerId: string; listKey: string; name: string; owner: string }[] = [];
+    const owners = Array.from(new Set(access.withMe.filter((s) => s.area === "listas").map((s) => s.ownerId)));
+    for (const o of owners) {
+      const owner = access.sharedBy(o) ?? "outra pessoa";
+      if (access.withMe.some((s) => s.ownerId === o && s.area === "listas" && (!s.itemKey || s.itemKey === "compras")))
+        out.push({ key: sharedListKey(o, "compras"), ownerId: o, listKey: "compras", name: "Compras", owner });
+      for (const l of sharedLists.filter((x) => x.ownerId === o)) out.push({ key: sharedListKey(o, l.id), ownerId: o, listKey: l.id, name: l.name, owner });
+    }
+    return out;
+  }, [access, sharedLists]);
+  const sharedOpen = sharedChips.find((c) => c.key === listId);
   const [dialog, setDialog] = useState<{ open: boolean; key: number; list: CustomList | null }>({
     open: false,
     key: 0,
@@ -518,7 +563,7 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
   });
   const isMovies = listId === MOVIES;
   const current = lists.find((l) => l.id === listId);
-  const isShopping = !current && !isMovies;
+  const isShopping = sharedOpen ? sharedOpen.listKey === "compras" : !current && !isMovies;
 
   const chip = (active: boolean) =>
     cn(
@@ -542,6 +587,12 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
             {l.name}
           </button>
         ))}
+        {sharedChips.map((c) => (
+          <button key={c.key} className={chip(c.key === listId)} onClick={() => onSelectList(c.key)} data-testid={`chip-shared-${c.listKey}`}>
+            <Users className="h-4 w-4" />
+            {c.name} · {c.owner}
+          </button>
+        ))}
         <button
           className={cn(chip(false), "border-dashed")}
           onClick={() => setDialog((d) => ({ open: true, key: d.key + 1, list: null }))}
@@ -554,26 +605,51 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <AppIcon name={isMovies ? "filmes" : "listas"} className="h-9 w-9" />
-          {isMovies ? "Filmes e séries" : isShopping ? "Lista de compras" : current?.name}
+          {sharedOpen ? `${sharedOpen.name} de ${sharedOpen.owner}` : isMovies ? "Filmes e séries" : isShopping ? "Lista de compras" : current?.name}
           {current?.temporary && (
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground">temporária</span>
           )}
         </h2>
-        {current && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setDialog((d) => ({ open: true, key: d.key + 1, list: current }))}
-            title="Editar lista"
-          >
-            <Pencil className="h-4 w-4" />
-            <span className="sr-only">Editar lista</span>
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {!sharedOpen && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShareOpen((d) => ({ open: true, key: d.key + 1 }))}
+              title="Compartilhar"
+              data-testid="button-share-list"
+            >
+              <Users className="h-4 w-4" />
+              <span className="sr-only">Compartilhar</span>
+            </Button>
+          )}
+          {current && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setDialog((d) => ({ open: true, key: d.key + 1, list: current }))}
+              title="Editar lista"
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="sr-only">Editar lista</span>
+            </Button>
+          )}
+        </div>
       </div>
 
-      {isMovies ? (
+      {sharedOpen ? (
+        <ListItems
+          key={sharedOpen.key}
+          listId={sharedOpen.listKey === "compras" ? undefined : sharedOpen.listKey}
+          isShopping={isShopping}
+          onVoice={onVoice}
+          onListDeleted={() => onSelectList(undefined)}
+          ownerId={sharedOpen.ownerId}
+          readOnly={!access.canEdit(sharedOpen.ownerId, "listas", sharedOpen.listKey)}
+        />
+      ) : isMovies ? (
         <WatchlistView />
       ) : (
         <ListItems
@@ -585,6 +661,14 @@ export function ListsTab({ listId, onSelectList, onVoice }: ListsTabProps) {
           onListDeleted={() => onSelectList(undefined)}
         />
       )}
+      <ShareDialog
+        key={`share-${shareOpen.key}`}
+        open={shareOpen.open}
+        onOpenChange={(o) => setShareOpen((d) => ({ ...d, open: o }))}
+        area={isMovies ? "filmes" : "listas"}
+        itemKey={isMovies ? undefined : current ? current.id : "compras"}
+        itemLabel={isMovies ? undefined : current ? current.name : "Lista de compras"}
+      />
 
       <ListDialog
         key={dialog.key}

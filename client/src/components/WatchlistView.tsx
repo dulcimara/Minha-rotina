@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { KindHeader } from "@/components/KindHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { NativeSelect } from "@/components/NativeSelect";
-import { Clapperboard, Film, Plus, Star, Trash2, Tv } from "lucide-react";
+import { Clapperboard, Film, Plus, Star, Trash2, Tv, Users } from "lucide-react";
+import { ShareDialog, SharedBadge } from "@/components/ShareDialog";
+import { useShareAccess } from "@/lib/sharing";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useUserId, useWatchlist } from "@/hooks/use-data";
 import { deleteWatchItem, saveWatchItem, type WatchItem, type WatchStatus } from "@/lib/data";
@@ -59,7 +61,11 @@ function WatchDialog({ item, open, onOpenChange }: { item: WatchItem | null; ope
   const [review, setReview] = useState(item?.review ?? "");
   const [where, setWhere] = useState(item?.where ?? "");
   const [watchedAt, setWatchedAt] = useState(item?.watchedAt ?? format(new Date(), "yyyy-MM-dd"));
+  const access = useShareAccess();
+  const [shareOpen, setShareOpen] = useState(false);
   if (!item) return null;
+  const by = access.sharedBy(item.ownerId);
+  const editable = access.canEdit(item.ownerId, "filmes", item.id);
 
   const save = async () => {
     try {
@@ -111,7 +117,14 @@ function WatchDialog({ item, open, onOpenChange }: { item: WatchItem | null; ope
           <Label htmlFor="w-where">Onde assistir</Label>
           <Input id="w-where" list="servicos" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Netflix, cinema..." />
         </div>
+        {by && <SharedBadge name={by} readOnly={!editable} className="w-fit" />}
         <DialogFooter className="gap-2 sm:justify-between">
+          {!by && (
+            <Button variant="outline" className="gap-1" onClick={() => setShareOpen(true)}>
+              <Users className="h-4 w-4" /> Compartilhar
+            </Button>
+          )}
+          {editable && (
           <Button
             variant="ghost"
             className="gap-1 text-destructive"
@@ -124,8 +137,10 @@ function WatchDialog({ item, open, onOpenChange }: { item: WatchItem | null; ope
           >
             <Trash2 className="h-4 w-4" /> Apagar
           </Button>
-          <Button onClick={save} data-testid="button-watch-save">Salvar</Button>
+          )}
+          {editable && <Button onClick={save} data-testid="button-watch-save">Salvar</Button>}
         </DialogFooter>
+        <ShareDialog open={shareOpen} onOpenChange={setShareOpen} area="filmes" itemKey={item.id} itemLabel={item.title} />
       </DialogContent>
     </Dialog>
   );
@@ -136,6 +151,7 @@ export function WatchlistView() {
   const { toast } = useToast();
   const userId = useUserId();
   const { data: items = [], isLoading } = useWatchlist();
+  const access = useShareAccess();
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<"filme" | "serie">("filme");
   const [where, setWhere] = useState("");
@@ -220,6 +236,7 @@ export function WatchlistView() {
                         .join(" · ")}
                     </span>
                     {i.review && <span className="block text-xs italic text-foreground/70 line-clamp-1">“{i.review}”</span>}
+                    {access.sharedBy(i.ownerId) && <SharedBadge name={access.sharedBy(i.ownerId)!} className="mt-0.5" />}
                   </span>
                   {i.status === "assisti" ? (
                     i.rating ? <Stars value={i.rating} size="h-3.5 w-3.5" /> : <span className="text-xs text-primary">dar nota</span>

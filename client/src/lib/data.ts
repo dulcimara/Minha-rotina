@@ -1,6 +1,12 @@
 import { onlyNumber } from "@/components/QuantityStepper";
 import { nextDue, type Repeat } from "@/lib/lembretes";
 import { supabase } from "@/lib/supabase";
+
+/** Id da pessoa logada (da sessão guardada no aparelho). */
+export async function myId(): Promise<string | undefined> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id;
+}
 import { format } from "date-fns";
 
 /** Data sem hora no formato do banco: "AAAA-MM-DD". */
@@ -12,6 +18,8 @@ const toDay = (d: Date) => format(d, "yyyy-MM-dd");
 
 export interface Activity {
   id: string;
+  /** dona do compromisso (diferente de mim = compartilhado comigo) */
+  ownerId?: string;
   title: string;
   description?: string;
   /** endereço do compromisso (opcional) */
@@ -52,6 +60,7 @@ interface ActivityRow {
   reminder_minutes_before: number | null;
   repeat_days?: number[] | null;
   child_id?: string | null;
+  user_id?: string;
   completed_dates?: string[] | null;
   reminder_voice_text: string | null;
   reminder_voice_gender: "male" | "female" | null;
@@ -60,6 +69,7 @@ interface ActivityRow {
 function fromRow(row: ActivityRow): Activity {
   return {
     id: row.id,
+    ownerId: row.user_id,
     title: row.title,
     description: row.description ?? undefined,
     address: row.address ?? undefined,
@@ -155,6 +165,8 @@ export async function deleteActivity(id: string) {
 
 export interface Reminder {
   id: string;
+  /** dona do lembrete (diferente de mim = compartilhado comigo) */
+  ownerId?: string;
   text: string;
   emoji?: string;
   dueDate?: string; // AAAA-MM-DD
@@ -168,6 +180,7 @@ export interface Reminder {
 
 const toReminder = (r: Record<string, unknown>): Reminder => ({
   id: r.id as string,
+  ownerId: (r.user_id as string | undefined) ?? undefined,
   text: r.text as string,
   emoji: (r.emoji as string | null) ?? undefined,
   dueDate: (r.due_date as string | null) ?? undefined,
@@ -256,9 +269,12 @@ export interface NewItem {
 }
 
 /** Itens de uma lista. Sem listId = lista de compras. */
-export async function fetchShoppingItems(listId?: string): Promise<ShoppingItem[]> {
+export async function fetchShoppingItems(listId?: string, ownerId?: string): Promise<ShoppingItem[]> {
   let query = supabase.from("shopping_items").select("*");
   query = listId ? query.eq("list_id", listId) : query.is("list_id", null);
+  // Só os itens da dona da lista (a minha, ou a de quem compartilhou comigo)
+  const owner = ownerId ?? (await myId());
+  if (owner) query = query.eq("user_id", owner);
   let { data, error } = await query.order("checked", { ascending: true }).order("created_at", { ascending: true });
   // Antes de rodar o SQL da etapa 5 a coluna list_id não existe: mostra a lista mesmo assim.
   if (error && !listId && error.code === "42703") {
@@ -274,7 +290,7 @@ export async function fetchShoppingItems(listId?: string): Promise<ShoppingItem[
   }));
 }
 
-export async function addShoppingItems(items: (string | NewItem)[], listId?: string) {
+export async function addShoppingItems(items: (string | NewItem)[], listId?: string, ownerId?: string) {
   const rows = items
     .map((i) => (typeof i === "string" ? { name: i } : i))
     .map((i) => ({ name: i.name.trim(), quantity: onlyNumber(i.quantity) || undefined }))
@@ -283,6 +299,7 @@ export async function addShoppingItems(items: (string | NewItem)[], listId?: str
       name: i.name,
       ...(i.quantity ? { quantity: i.quantity } : {}),
       ...(listId ? { list_id: listId } : {}),
+      ...(ownerId ? { user_id: ownerId } : {}), // lista compartilhada: o item fica na conta da dona
     }));
   if (rows.length === 0) return;
   const { error } = await supabase.from("shopping_items").insert(rows);
@@ -303,9 +320,11 @@ export async function setShoppingItemChecked(id: string, checked: boolean) {
 }
 
 /** Marca (ou desmarca) todos os itens de uma lista. */
-export async function setAllItemsChecked(checked: boolean, listId?: string) {
+export async function setAllItemsChecked(checked: boolean, listId?: string, ownerId?: string) {
   let q = supabase.from("shopping_items").update({ checked });
   q = listId ? q.eq("list_id", listId) : q.is("list_id", null);
+  const owner = ownerId ?? (await myId());
+  if (owner) q = q.eq("user_id", owner);
   const { error } = await q;
   if (error) throw error;
 }
@@ -315,9 +334,11 @@ export async function deleteShoppingItem(id: string) {
   if (error) throw error;
 }
 
-export async function clearCheckedShoppingItems(listId?: string) {
+export async function clearCheckedShoppingItems(listId?: string, ownerId?: string) {
   let q = supabase.from("shopping_items").delete().eq("checked", true);
   q = listId ? q.eq("list_id", listId) : q.is("list_id", null);
+  const owner = ownerId ?? (await myId());
+  if (owner) q = q.eq("user_id", owner);
   const { error } = await q;
   if (error) throw error;
 }
@@ -325,7 +346,10 @@ export async function clearCheckedShoppingItems(listId?: string) {
 // ---------- Listas personalizadas ----------
 
 export async function fetchLists(): Promise<CustomList[]> {
-  const { data, error } = await supabase.from("lists").select("id, name, temporary").order("created_at");
+  const me = await myId();
+  let q = supabase.from("lists").select("id, name, temporary");
+  if (me) q = q.eq("user_id", me); // as compartilhadas comigo vêm por fetchSharedLists
+  const { data, error } = await q.order("created_at");
   if (error) {
     if (error.code === "42P01") return []; // tabela ainda não criada (etapa 5)
     throw error;
@@ -735,8 +759,10 @@ export async function exportMyData(): Promise<Blob> {
     exportado_em: new Date().toISOString(),
     conta: { email: userData.user?.email, criada_em: userData.user?.created_at, perfil: userData.user?.user_metadata },
   };
-  for (const table of ALL_TABLES) {
-    const { data, error } = await supabase.from(table).select("*");
+  const me = userData.user?.id ?? "";
+  for (const table of [...ALL_TABLES, "shares"]) {
+    // só os meus dados (sem o que outras pessoas compartilharam comigo)
+    const { data, error } = await supabase.from(table).select("*").eq(table === "shares" ? "owner_id" : "user_id", me);
     out[table] = error ? `indisponível (${error.message})` : data;
   }
   return new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
@@ -757,6 +783,7 @@ export type WatchStatus = "quero" | "assistindo" | "assisti";
 
 export interface WatchItem {
   id: string;
+  ownerId?: string;
   title: string;
   kind: "filme" | "serie";
   where?: string;
@@ -774,6 +801,7 @@ export async function fetchWatchlist(): Promise<WatchItem[]> {
   }
   return (data ?? []).map((r) => ({
     id: r.id as string,
+    ownerId: r.user_id as string,
     title: r.title as string,
     kind: r.kind as "filme" | "serie",
     where: (r.where_to_watch as string | null) ?? undefined,
@@ -858,4 +886,90 @@ export async function saveWorkout(input: Omit<Workout, "id">, id?: string) {
 export async function deleteWorkout(id: string) {
   const { error } = await supabase.from("workouts").delete().eq("id", id);
   if (error) throw error;
+}
+
+// =============================================================
+// Compartilhamento
+// =============================================================
+
+export type ShareArea = "listas" | "lembretes" | "agenda" | "filmes";
+export type SharePermission = "ler" | "editar";
+
+export interface Share {
+  id: string;
+  ownerId: string;
+  ownerName?: string;
+  memberId: string;
+  memberEmail: string;
+  memberName?: string;
+  area: ShareArea;
+  /** vazio = a área inteira; "compras" = lista de compras; senão, o id do item */
+  itemKey?: string;
+  itemLabel?: string;
+  permission: SharePermission;
+}
+
+/** O que eu compartilhei e o que compartilharam comigo. */
+export async function fetchShares(): Promise<Share[]> {
+  const { data, error } = await supabase.from("shares").select("*").order("created_at");
+  if (error) {
+    if (error.code === "42P01") return []; // etapa 11 ainda não rodada
+    throw error;
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    ownerId: r.owner_id as string,
+    ownerName: (r.owner_name as string | null) ?? undefined,
+    memberId: r.member_id as string,
+    memberEmail: r.member_email as string,
+    memberName: (r.member_name as string | null) ?? undefined,
+    area: r.area as ShareArea,
+    itemKey: (r.item_key as string | null) ?? undefined,
+    itemLabel: (r.item_label as string | null) ?? undefined,
+    permission: r.permission as SharePermission,
+  }));
+}
+
+export async function shareWith(email: string, area: ShareArea, permission: SharePermission, itemKey?: string, itemLabel?: string) {
+  const { error } = await supabase.rpc("share_with", {
+    p_email: email,
+    p_area: area,
+    p_item_key: itemKey ?? "",
+    p_item_label: itemLabel ?? "",
+    p_permission: permission,
+  });
+  if (error) {
+    if (/pessoa_nao_encontrada/.test(error.message))
+      throw new Error("Não achamos ninguém com esse e-mail no app. A pessoa precisa ter conta (com o e-mail confirmado).");
+    if (/mesma_pessoa/.test(error.message)) throw new Error("Esse é o seu próprio e-mail.");
+    if (/function .*share_with|Could not find the function/i.test(error.message))
+      throw new Error("O compartilhamento ainda não foi ativado no banco (falta rodar o SQL da etapa 11).");
+    throw error;
+  }
+}
+
+export async function updateSharePermission(id: string, permission: SharePermission) {
+  const { error } = await supabase.from("shares").update({ permission }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Para de compartilhar (dona) ou sai do compartilhamento (convidada). */
+export async function deleteShare(id: string) {
+  const { error } = await supabase.from("shares").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export interface SharedList {
+  id: string;
+  name: string;
+  ownerId: string;
+}
+
+/** Listas de outras pessoas que foram compartilhadas comigo. */
+export async function fetchSharedLists(): Promise<SharedList[]> {
+  const me = await myId();
+  if (!me) return [];
+  const { data, error } = await supabase.from("lists").select("id, name, user_id").neq("user_id", me).order("created_at");
+  if (error) return [];
+  return (data ?? []).map((r) => ({ id: r.id as string, name: r.name as string, ownerId: r.user_id as string }));
 }
