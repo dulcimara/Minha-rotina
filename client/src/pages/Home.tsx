@@ -149,8 +149,8 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
         <div className="container max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-xl font-display font-semibold text-primary flex items-center gap-2" data-testid="text-app-title">
-            <img src="/icon-192.png" alt="" className="h-7 w-7 rounded-lg" />
+          <h1 className="font-brand text-[1.35rem] text-foreground flex items-center gap-2" data-testid="text-app-title">
+            <img src="/logo-mark.png" alt="" className="h-7 w-auto" />
             Minha Rotina
           </h1>
           <div className="flex items-center gap-1">
