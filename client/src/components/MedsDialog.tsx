@@ -3,6 +3,7 @@ import { addDays, format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInputBR } from "@/components/DateInputBR";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -64,6 +65,10 @@ function MedForm({ med, onDone }: { med?: Medication; onDone: () => void }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !finalTimes.length) return;
+    if (!startDate) {
+      toast({ title: "Confira a data de início", description: "Use o formato dd/mm/aaaa, por exemplo 05/11/2026.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const [y, m, d] = startDate.split("-").map(Number);
@@ -160,7 +165,7 @@ function MedForm({ med, onDone }: { med?: Medication; onDone: () => void }) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="med-start" className="text-xs text-muted-foreground">Começa em</Label>
-            <Input id="med-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <DateInputBR id="med-start" value={startDate} onChange={setStartDate} data-testid="input-med-start" />
           </div>
           {!continuous && (
             <div className="space-y-1.5">

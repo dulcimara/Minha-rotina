@@ -25,8 +25,10 @@ export function DateInputBR({
   id,
   className,
   onBlur,
+  autoComplete = "off",
   ...rest
 }: {
+  autoComplete?: string;
   value?: string;
   onChange: (iso: string) => void;
   id?: string;
@@ -47,7 +49,7 @@ export function DateInputBR({
     <Input
       id={id}
       inputMode="numeric"
-      autoComplete="bday"
+      autoComplete={autoComplete}
       placeholder="dd/mm/aaaa"
       maxLength={10}
       value={text}
