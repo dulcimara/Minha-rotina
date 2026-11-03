@@ -1,14 +1,18 @@
-import { CalendarClock, Cake, Droplet, ShoppingBasket, type LucideIcon } from "lucide-react";
+import { Bell, CalendarClock, Cake, Clapperboard, Droplet, Dumbbell, Pill, ShoppingBasket, type LucideIcon } from "lucide-react";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { AppIcon, type AppIconName } from "@/components/AppIcons";
 
-export type HeaderKind = "activity" | "shopping" | "birthday" | "period";
+export type HeaderKind = "activity" | "shopping" | "birthday" | "period" | "reminder" | "workout" | "medication" | "movie";
 
 const KINDS: Record<HeaderKind, { label: string; icon: LucideIcon; art: AppIconName }> = {
   activity: { label: "Compromisso", icon: CalendarClock, art: "agenda" },
   shopping: { label: "Lista de compras", icon: ShoppingBasket, art: "listas" },
   birthday: { label: "Aniversário", icon: Cake, art: "aniversarios" },
   period: { label: "Ciclo menstrual", icon: Droplet, art: "ciclo" },
+  reminder: { label: "Lembrete", icon: Bell, art: "lembretes" },
+  workout: { label: "Exercício", icon: Dumbbell, art: "atividade" },
+  medication: { label: "Remédio", icon: Pill, art: "remedios" },
+  movie: { label: "Filmes e séries", icon: Clapperboard, art: "filmes" },
 };
 
 interface KindHeaderProps {
