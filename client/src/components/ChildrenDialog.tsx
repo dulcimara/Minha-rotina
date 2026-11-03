@@ -1,5 +1,7 @@
 import { AppIcon } from "@/components/AppIcons";
 import { DateInputBR } from "@/components/DateInputBR";
+import { VaccineCard } from "@/components/VaccineCard";
+import { isMinor, vaccineStatus } from "@/lib/vacinas";
 import { useState, type FormEvent } from "react";
 import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -69,7 +71,13 @@ function ChildForm({ child, onDone }: { child?: Child; onDone: () => void }) {
     try {
       await saveChild(c, child?.id);
       refresh(userId, "children");
-      toast({ title: child ? "Dados atualizados!" : `${c.name} foi adicionado(a)!` });
+      const nextVaccine = vaccineStatus(c.birthDate).next[0];
+      toast({
+        title: child ? "Dados atualizados!" : `${c.name} foi adicionado(a)!`,
+        description: nextVaccine
+          ? `Próximas vacinas (${nextVaccine.label}, ${format(nextVaccine.date, "dd/MM/yyyy")}): ${nextVaccine.vaccines.join(", ")}. Aviso uma semana antes.`
+          : undefined,
+      });
       onDone();
     } catch (err) {
       toast({ title: "Não foi possível salvar", description: (err as Error).message, variant: "destructive" });
@@ -187,6 +195,8 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
               .join(" · ") || undefined,
           )}
           {child.notes && <p className="text-sm text-muted-foreground whitespace-pre-line">{child.notes}</p>}
+
+          {isMinor(child.birthDate) || !child.birthDate ? <VaccineCard name={child.name} birthDate={child.birthDate} /> : null}
 
           {upcoming.length > 0 && (
             <div className="pt-1">

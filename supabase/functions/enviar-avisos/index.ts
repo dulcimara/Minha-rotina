@@ -144,6 +144,22 @@ interface Due {
   body: string;
 }
 
+/** Calendário Nacional de Vacinação 2026 (mesma lista de client/src/lib/vacinas.ts). */
+const VACCINES: { months: number; label: string; vaccines: string[] }[] = [
+  { months: 2, label: "2 meses", vaccines: ["Pentavalente (1ª dose)", "Poliomielite VIP (1ª dose)", "Rotavírus (1ª dose)", "Pneumocócica (1ª dose)"] },
+  { months: 3, label: "3 meses", vaccines: ["Meningocócica C (1ª dose)"] },
+  { months: 4, label: "4 meses", vaccines: ["Pentavalente (2ª dose)", "Poliomielite VIP (2ª dose)", "Rotavírus (2ª dose)", "Pneumocócica (2ª dose)"] },
+  { months: 5, label: "5 meses", vaccines: ["Meningocócica C (2ª dose)"] },
+  { months: 6, label: "6 meses", vaccines: ["Pentavalente (3ª dose)", "Poliomielite VIP (3ª dose)", "Gripe (1ª dose, a 2ª 30 dias depois)", "COVID-19 (1ª dose)"] },
+  { months: 7, label: "7 meses", vaccines: ["COVID-19 (2ª dose)"] },
+  { months: 9, label: "9 meses", vaccines: ["Febre amarela (1ª dose)", "COVID-19 (3ª dose)"] },
+  { months: 12, label: "1 ano", vaccines: ["Tríplice viral (1ª dose)", "Pneumocócica (reforço)", "Meningocócica ACWY (reforço)"] },
+  { months: 15, label: "1 ano e 3 meses", vaccines: ["DTP (1º reforço)", "Poliomielite VIP (reforço)", "Hepatite A", "Tetra viral (sarampo, caxumba, rubéola e catapora)"] },
+  { months: 48, label: "4 anos", vaccines: ["DTP (2º reforço)", "Varicela (2ª dose)", "Febre amarela (reforço)"] },
+  { months: 108, label: "9 anos", vaccines: ["HPV (dose única, até 14 anos)"] },
+  { months: 132, label: "11 anos", vaccines: ["Meningocócica ACWY (dose única, até 14 anos)"] },
+];
+
 interface UserData {
   tz: string;
   name?: string;
@@ -230,6 +246,33 @@ export function dueFor(u: UserData, now: Date): Due[] {
         }`,
       });
     }
+  }
+
+  // Vacinas dos filhos menores de 18: uma semana antes de atingir cada idade do calendário, às 9h
+  if (inWindow(nineAm, now)) {
+    for (const c of u.children) {
+      if (!c.birth_date) continue;
+      const [by, bm, bd] = String(c.birth_date).split("-").map(Number);
+      if (Date.UTC(by + 18, bm - 1, bd) <= Date.UTC(today.y, today.m - 1, today.d)) continue;
+      for (const v of VACCINES) {
+        // data em que completa a idade (meses somados à data de nascimento) menos 7 dias
+        const total = bm - 1 + v.months;
+        const due = new Date(Date.UTC(by + Math.floor(total / 12), total % 12, bd));
+        if (due.getUTCDate() !== bd) due.setUTCDate(0); // ex.: 31 -> último dia do mês
+        const alert = new Date(due.getTime() - 7 * 86_400_000);
+        if (alert.toISOString().slice(0, 10) !== todayKey) continue;
+        const dd = `${pad(due.getUTCDate())}/${pad(due.getUTCMonth() + 1)}`;
+        due_push(due, v, c, dd);
+      }
+    }
+  }
+  function due_push(_d: Date, v: { months: number; label: string; vaccines: string[] }, c: any, dd: string) {
+    due.push({
+      key: `vac:${c.id}:${v.months}`,
+      at: nineAm,
+      title: `💉 Vacinas de ${c.name}`,
+      body: `Em ${dd} ${c.name} completa ${v.label} e pode tomar: ${v.vaccines.join(", ")}. Leve a caderneta ao posto.`,
+    });
   }
 
   // Remédios, em cada horário
