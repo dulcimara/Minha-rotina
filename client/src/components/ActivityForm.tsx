@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { upperFirst } from "@/lib/utils";
+import { cn, upperFirst } from "@/lib/utils";
 import { DayCalendar } from "@/components/DayCalendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +28,11 @@ interface ActivityFormProps {
   withCalendar?: boolean;
   /** Dias que já têm compromisso (bolinha no calendário). */
   markedDates?: Date[];
+  /** O que mostrar logo abaixo do calendário para o dia tocado (ex.: compromissos do dia). */
+  renderDay?: (day: Date) => ReactNode;
 }
 
-export function ActivityForm({ onSave, onCancel, activity, defaultDate, withCalendar, markedDates = [] }: ActivityFormProps) {
+export function ActivityForm({ onSave, onCancel, activity, defaultDate, withCalendar, markedDates = [], renderDay }: ActivityFormProps) {
   const start = activity?.date ?? defaultDate ?? new Date();
   const [title, setTitle] = useState(activity?.title ?? "");
   const [description, setDescription] = useState(activity?.description ?? "");
@@ -82,9 +84,10 @@ export function ActivityForm({ onSave, onCancel, activity, defaultDate, withCale
         {withCalendar && (
           <div className="space-y-2">
             <DayCalendar selectedDate={selectedDay} onSelectDate={(d) => setDate(format(d, "yyyy-MM-dd"))} activityDates={markedDates} />
-            <p className="text-center text-sm">
-              {repeatDays.length ? "Começa em " : "Dia escolhido: "}
-              <strong>{upperFirst(format(selectedDay, "EEEE, d 'de' MMMM", { locale: ptBR }))}</strong>
+            {renderDay?.(selectedDay)}
+            <p className={cn("text-center text-sm", renderDay && "border-t pt-4")}>
+              {repeatDays.length ? "Começa em " : renderDay ? "Novo compromisso em " : "Dia escolhido: "}
+              <strong>{(renderDay ? (t: string) => t : upperFirst)(format(selectedDay, "EEEE, d 'de' MMMM", { locale: ptBR }))}</strong>
             </p>
           </div>
         )}
