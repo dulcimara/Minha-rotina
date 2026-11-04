@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics";
 import { AppIcon } from "@/components/AppIcons";
 import { useMemo, useState, type FormEvent } from "react";
 import { format } from "date-fns";
@@ -286,6 +287,7 @@ function ListItems({
         listId,
         ownerId,
       );
+      track("item_lista", { lista: isShopping ? "compras" : "outra", quantidade: names.length });
       refresh(userId, "shopping");
     } catch (err) {
       fail(toast, "Não foi possível adicionar")(err);

@@ -1,5 +1,6 @@
+import { track, trackScreen } from "@/lib/analytics";
 import { useAppIcon } from "@/lib/palettes";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -77,6 +78,11 @@ export default function Home() {
   const showError = (title: string) => (error: Error) =>
     toast({ title, description: error.message, variant: "destructive" });
 
+  // Estatísticas: qual aba foi aberta (o ciclo nunca é enviado; ver analytics.ts)
+  useEffect(() => {
+    trackScreen(tab === "compras" ? "listas" : tab);
+  }, [tab]);
+
   // ---------- Ações das atividades ----------
 
   const saveMutation = useMutation({
@@ -84,6 +90,7 @@ export default function Home() {
       id ? updateActivity(id, input) : createActivity(input),
     onSuccess: (_d, vars) => {
       refresh(userId, "activities");
+      if (!vars.id) track("criou_compromisso", { origem: "formulario" });
       toast({ title: vars.id ? "Compromisso atualizado!" : "Compromisso salvo!" });
     },
     onError: showError("Não foi possível salvar"),

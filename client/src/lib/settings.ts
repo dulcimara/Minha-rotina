@@ -24,6 +24,8 @@ export interface AccountSettings {
   palette: string;
   /** versículo do dia (Provérbios) no topo do app */
   showVerse: boolean;
+  /** aceitou estatísticas de uso anônimas (Google Analytics) */
+  analytics: boolean;
 }
 
 export const DEFAULT_SETTINGS: AccountSettings = {
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: AccountSettings = {
   showFertile: false,
   palette: "rosa",
   showVerse: true,
+  analytics: false, // só com consentimento
 };
 
 // Nome de cada configuração dentro da conta (user_metadata)
@@ -49,6 +52,7 @@ const META: Record<keyof AccountSettings, string> = {
   showFertile: "show_fertile",
   palette: "palette",
   showVerse: "show_verse",
+  analytics: "analytics_consent",
 };
 
 /** As configurações ficam na própria conta (valem em todos os aparelhos). */

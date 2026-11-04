@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics";
 import { useState, type FormEvent } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -71,6 +72,7 @@ function ReminderForm({ initial, onDone, onShare }: { initial?: Reminder; onDone
     setSaving(true);
     try {
       await saveReminder({ text, emoji, dueDate, dueTime, repeat, alert, notes }, initial?.id);
+      if (!initial) track("criou_lembrete", { repeticao: repeat, pronto: PRESETS.some((p) => p.title === text) ? "sim" : "nao" });
       refresh(userId, "reminders");
       toast({ title: initial ? "Lembrete atualizado" : "Lembrete criado" });
       onDone();

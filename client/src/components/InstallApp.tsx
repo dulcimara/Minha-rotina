@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics";
 import { useAppIcon } from "@/lib/palettes";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -154,6 +155,7 @@ export function InstallContent({ onInstalled }: { onInstalled?: () => void }) {
         onClick={async () => {
           setBusy(true);
           const ok = await promptInstall().finally(() => setBusy(false));
+          if (ok) track("instalou_app");
           if (ok) {
             toast({ title: "Instalando o Minha Rotina", description: "Em instantes o ícone aparece na tela do celular." });
             onInstalled?.();

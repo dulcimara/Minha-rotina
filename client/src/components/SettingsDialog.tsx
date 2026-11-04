@@ -1,3 +1,7 @@
+import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { isAdmin } from "@/lib/admin";
+import { startAnalytics, stopAnalytics } from "@/lib/analytics";
 import { useEffect, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -5,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+  BarChart3,
+  LayoutDashboard,
   BookOpen,
   ShieldCheck,
   Users,
@@ -98,6 +104,9 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const fail = (err: unknown) =>
     toast({ title: "Não foi possível salvar", description: (err as Error).message, variant: "destructive" });
   const save = (patch: Parameters<typeof saveSettings>[0]) => saveSettings(patch).catch(fail);
+  const [, navigate] = useLocation();
+  // Botão "Gestão do app" só para a administradora (o banco confere de novo)
+  const { data: admin } = useQuery({ queryKey: ["admin", "is"], queryFn: isAdmin, enabled: open, staleTime: 10 * 60_000 });
 
   const saveName = async () => {
     if (!name.trim()) return;
@@ -339,6 +348,29 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             onChange={(v) => save({ showFertile: v })}
           />
         </Section>
+
+        <Section icon={BarChart3} title="Estatísticas de uso">
+          <ToggleRow
+            id="set-analytics"
+            label="Ajudar a melhorar o app"
+            hint="Envia estatísticas anônimas ao Google Analytics: quais telas e recursos são usados. Nunca seu nome, e-mail, o que você cadastra ou dados de saúde (ciclo, remédios, filhos)."
+            checked={settings.analytics}
+            onChange={(v) => {
+              void save({ analytics: v });
+              if (v) startAnalytics(true);
+              else stopAnalytics();
+            }}
+          />
+        </Section>
+
+        {admin && (
+          <Button variant="outline" className="w-full gap-2" onClick={() => {
+              onOpenChange(false);
+              navigate("/admin");
+            }} data-testid="button-admin">
+            <LayoutDashboard className="h-4 w-4" /> Gestão do app
+          </Button>
+        )}
 
         <Section icon={FileText} title="Seus dados">
           <a href="/privacidade" target="_blank" rel="noreferrer" className="block text-sm text-primary underline-offset-4 hover:underline">
