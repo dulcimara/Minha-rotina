@@ -1,3 +1,4 @@
+import { formatPhone } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { BellRing, MapPin, Phone } from "lucide-react";
@@ -36,7 +37,7 @@ export function AlertModal({ alert, onDismiss, onSnooze, onTaken }: AlertModalPr
             )}
             {alert.phone && (
               <a href={`tel:${alert.phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-1.5 text-primary">
-                <Phone className="h-4 w-4" /> {alert.phone}
+                <Phone className="h-4 w-4" /> {formatPhone(alert.phone)}
               </a>
             )}
           </div>

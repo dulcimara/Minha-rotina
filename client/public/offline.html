@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#9b51b5" />
+    <title>Sem internet · Minha Rotina</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: linear-gradient(160deg, #fde4ee, #efdcf5); color: #2d2235;
+      }
+      .card { width: 100%; max-width: 360px; background: #fffafc; border-radius: 24px; padding: 28px 24px; text-align: center;
+        box-shadow: 0 12px 32px rgb(155 81 181 / 0.15); }
+      img { width: 72px; height: 72px; }
+      h1 { font-size: 22px; margin: 16px 0 8px; }
+      p { font-size: 15px; line-height: 1.5; color: #6b5a74; margin: 0 0 20px; }
+      button { width: 100%; border: 0; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 600;
+        background: #9b51b5; color: #fff; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #1d1621; color: #f4eaf7; }
+        .card { background: #2a2030; box-shadow: none; }
+        p { color: #c9b8d1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img src="/icon-192.png" alt="" />
+      <h1>Você está sem internet</h1>
+      <p>O Minha Rotina precisa de conexão para mostrar e salvar sua rotina. Confira o Wi-Fi ou os dados móveis e tente de novo.</p>
+      <button type="button" onclick="location.reload()">Tentar de novo</button>
+    </div>
+    <script>
+      // Volta sozinho quando a internet voltar
+      window.addEventListener("online", () => location.reload());
+    </script>
+  </body>
+</html>

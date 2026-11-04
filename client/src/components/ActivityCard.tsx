@@ -8,7 +8,7 @@ import { Pencil, Trash2, Clock, Bell, Volume2, MapPin, Phone, Repeat, Users } fr
 import { repeatLabel } from "@/lib/recurrence";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatPhone } from "@/lib/utils";
 import { CategoryArt } from "@/components/CategoryArt";
 import { useChildren } from "@/hooks/use-data";
 import { categoryLabel, reminderLabel } from "@/lib/options";
@@ -128,7 +128,7 @@ export function ActivityCard({
               {phone && (
                 <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-1.5 text-primary hover:underline">
                   <Phone className="h-4 w-4 shrink-0" />
-                  <span>{phone}</span>
+                  <span>{formatPhone(phone)}</span>
                 </a>
               )}
             </div>

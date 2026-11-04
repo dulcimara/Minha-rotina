@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/NativeSelect";
 import { ArrowLeft, Check, Pencil, Plus, Repeat as RepeatIcon, RotateCcw, Trash2, Users } from "lucide-react";
 import { AppIcon } from "@/components/AppIcons";
-import { ReminderGlyph } from "@/components/ReminderGlyph";
+import { ReminderGlyph, ReminderIcon } from "@/components/ReminderGlyph";
 import { ShareDialog, SharedBadge } from "@/components/ShareDialog";
 import { useShareAccess } from "@/lib/sharing";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +44,7 @@ export function useCompleteReminder() {
       const next = await completeReminder(r);
       refresh(userId, "reminders");
       toast({
-        title: `${r.emoji ?? "✅"} Feito!`,
+        title: "Feito!",
         description: next ? `Próximo lembrete: ${format(new Date(next + "T12:00"), "d 'de' MMMM", { locale: ptBR })}.` : r.text,
       });
     } catch (err) {
@@ -72,7 +72,7 @@ function ReminderForm({ initial, onDone, onShare }: { initial?: Reminder; onDone
     try {
       await saveReminder({ text, emoji, dueDate, dueTime, repeat, alert, notes }, initial?.id);
       refresh(userId, "reminders");
-      toast({ title: initial ? "Lembrete atualizado" : `${emoji ? `${emoji} ` : ""}Lembrete criado` });
+      toast({ title: initial ? "Lembrete atualizado" : "Lembrete criado" });
       onDone();
     } catch (err) {
       toast({ title: "Não foi possível salvar", description: (err as Error).message, variant: "destructive" });
@@ -99,11 +99,11 @@ function ReminderForm({ initial, onDone, onShare }: { initial?: Reminder; onDone
                     setRepeat(p.repeat);
                   }}
                   className={cn(
-                    "rounded-full border px-3 py-1.5 text-xs transition-colors",
+                    "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
                     on ? "border-primary bg-primary/10 font-semibold" : "border-border hover:bg-muted/60",
                   )}
                 >
-                  {p.emoji} {p.title}
+                  <ReminderIcon emoji={p.emoji} className="h-3.5 w-3.5" /> {p.title}
                 </button>
               );
             })}

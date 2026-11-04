@@ -1,5 +1,6 @@
 import { PRESETS, type Repeat } from "@/lib/lembretes";
 import { SPORTS } from "@/lib/workouts";
+import { CATALOG_ITEMS, normalize as normalizeItem } from "@/lib/catalog";
 
 /**
  * Interpretador de comandos de voz (sem IA).
@@ -216,7 +217,10 @@ function findTime(text: string): TimeMatch | undefined {
   // 15h, 15:30, 15h30 (sem "às")
   const bare = new RegExp(`\\b(\\d{1,2})\\s*(?::|h(?=\\d|\\b))\\s*(\\d{2})?()` + period);
 
-  m = text.match(withPrefix) ?? text.match(bare);
+  // "7 da manhã", "3 da tarde" (sem "às")
+  const spoken = new RegExp(`${START}(\\d{1,2})()()\\s+(?:da|de)\\s+(manhã|manha|tarde|noite|madrugada)${END}`);
+
+  m = text.match(withPrefix) ?? text.match(bare) ?? text.match(spoken);
   if (!m) return undefined;
 
   let hours = Number(m[1]);
@@ -297,7 +301,7 @@ function findAdvance(text: string): { minutes: number; remove: string[] } | unde
 // ---------------------------------------------------------------
 
 const CATEGORY_WORDS: [string, RegExp][] = [
-  ["saude", /\b(consulta|m[ée]dic[oa]|dentista|exame|vacina|rem[ée]dio|terapia|psic[óo]log|fisioterap|pediatra|ginecolog|hospital|cl[íi]nica|ultrassom)/],
+  ["saude", /\b(consulta|m[ée]dic[oa]|dentista|exame|vacina|rem[ée]dio|terapia|psic[óo]log|fisioterap|pediatra|ginecolog|hospital|cl[íi]nica|ultrassom|mamografia|laborat[óo]rio|oftalmolog|dermatolog|cardiolog|nutricionista)/],
   ["fitness", /\b(academia|treino|caminhada|corrida|pilates|yoga|ioga|nata[çc][ãa]o|muscula[çc][ãa]o|exerc[íi]cio)/],
   ["autocuidado", /\b(unha|manicure|cabelo|sal[ãa]o|massagem|depila[çc][ãa]o|sobrancelha|skincare|descans)/],
   ["familia", /\b(escola|filh[oa]|crian[çc]a|beb[êe]|reuni[ãa]o de pais|m[ãa]e|pai|v[óo]|av[óo]|marido|esposa|fam[íi]lia)/],
@@ -318,6 +322,28 @@ export function guessCategory(text: string): string {
 function capitalize(s: string): string {
   const t = s.trim();
   return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+}
+
+/**
+ * Devolve as maiúsculas que vieram na frase original ("buscar a ana" -> "buscar a Ana").
+ * A frase é interpretada em minúsculas; nomes próprios e siglas voltam como foram ditos ou digitados.
+ * A primeira palavra da frase é ignorada (a maiúscula ali é só começo de frase).
+ */
+function restoreCase(text: string, raw: string): string {
+  const cased = new Map<string, string>();
+  raw
+    .split(/[\s,.;:!?]+/)
+    .slice(1)
+    .forEach((w) => {
+      if (w && /[A-ZÀ-Ú]/.test(w)) cased.set(w.toLowerCase(), w);
+    });
+  if (!cased.size) return text;
+  return text.replace(/[^\s,.;:!?()]+/g, (w) => cased.get(w.toLowerCase()) ?? w);
+}
+
+/** Uma letra sozinha no fim vira maiúscula: "fralda tamanho g" -> "fralda tamanho G", "vitamina d" -> "vitamina D". */
+function upperLoneLetter(s: string): string {
+  return s.replace(/(\s)([a-z])$/, (_m, sp: string, l: string) => sp + l.toUpperCase());
 }
 
 function cleanup(s: string): string {
@@ -344,6 +370,33 @@ const SHOPPING_RE =
 const PERIOD_RE = /\b(menstrua[çc][ãa]o|menstruada|menstruei|minha\s+regra|fiquei\s+de\s+regra|per[íi]odo\s+menstrual)/;
 const PERIOD_END_RE = /\b(terminou|acabou|parou|passou|fim|terminei|acabei|parei)\b/;
 
+/**
+ * "arroz feijão" (dito sem pausa) -> ["arroz", "feijão"], quando cada pedaço é um item do catálogo.
+ * Se não der para dividir tudo em itens conhecidos, mantém como foi dito ("fralda tamanho g").
+ */
+const CATALOG_SET = new Set(CATALOG_ITEMS.map(normalizeItem));
+function splitKnownItems(item: string): string[] {
+  const words = item.split(/\s+/);
+  if (words.length < 2 || CATALOG_SET.has(normalizeItem(item))) return [item];
+  const memo = new Map<number, string[] | null>();
+  const go = (i: number): string[] | null => {
+    if (i === words.length) return [];
+    if (memo.has(i)) return memo.get(i)!;
+    let best: string[] | null = null;
+    // tenta primeiro o pedaço mais longo ("papel higiênico" antes de "papel")
+    for (let j = words.length; j > i && !best; j--) {
+      const piece = words.slice(i, j).join(" ");
+      if (!CATALOG_SET.has(normalizeItem(piece))) continue;
+      const rest = go(j);
+      if (rest) best = [piece, ...rest];
+    }
+    memo.set(i, best);
+    return best;
+  };
+  const parts = go(0);
+  return parts && parts.length > 1 ? parts : [item];
+}
+
 function parseShopping(text: string): VoiceCommand {
   const body = text
     .replace(
@@ -361,7 +414,8 @@ function parseShopping(text: string): VoiceCommand {
     .split(/,|;|\s+e\s+|\s+mais\s+|\s+também\s+/)
     .map((i) => cleanup(i.replace(/^(?:o|a|os|as|um|uma|uns|umas)\s+/, "")))
     .filter((i) => i.length > 0)
-    .map(capitalize);
+    .flatMap(splitKnownItems)
+    .map((i) => capitalize(upperLoneLetter(i)));
 
   return { kind: "shopping", items };
 }
@@ -372,13 +426,15 @@ function parsePeriod(text: string, now: Date): VoiceCommand {
   return PERIOD_END_RE.test(text) ? { kind: "period_end", date } : { kind: "period_start", date };
 }
 
-function parseBirthday(input: string, now: Date): VoiceCommand {
+function parseBirthday(input: string, now: Date, raw = input): VoiceCommand {
   // "..., ideia de presente perfume" (vai até o fim da frase)
   let text = input;
   let giftIdeas: string | undefined;
-  const giftMatch = text.match(/[,;]?\s*(?:ideias?\s+de\s+presentes?|sugest(?:ão|ao|ões|oes)\s+de\s+presentes?|presente)\s*(?:é|:|seria|pode\s+ser)?\s+(.+)$/);
+  const giftMatch =
+    text.match(/[,;]?\s*(?:ideias?\s+de\s+presentes?|sugest(?:ão|ao|ões|oes)\s+de\s+presentes?|presente)\s*(?:é|:|seria|pode\s+ser)?\s+(.+)$/) ??
+    text.match(/[,;]?\s*(?:e\s+)?(?:ele|ela)\s+(?:quer|queria|gostaria\s+de|pediu|ama|adora)\s+(?:ganhar\s+)?(?:um\s+|uma\s+)?(.+)$/);
   if (giftMatch) {
-    giftIdeas = capitalize(cleanup(giftMatch[1]));
+    giftIdeas = capitalize(restoreCase(cleanup(giftMatch[1]), raw));
     text = text.slice(0, giftMatch.index);
   }
   const found = findDate(text, now, true);
@@ -392,7 +448,7 @@ function parseBirthday(input: string, now: Date): VoiceCommand {
 
   return {
     kind: "birthday",
-    name: capitalize(name),
+    name: capitalize(restoreCase(name, raw)),
     day: found ? found.date.getDate() : undefined,
     month: found ? found.date.getMonth() + 1 : undefined,
     giftIdeas: giftIdeas || undefined,
@@ -405,7 +461,7 @@ const ACTIVITY_COMMAND_RE =
 const ACTIVITY_HINT_RE =
   /\b(compromisso|atividade|consulta|reuni[ãa]o|alarme|lembrete|lembrar|lembra|lembre|avis[ae]|avisar|agendar|marcar|incluir|adicionar|tenho)\b/;
 
-function parseActivity(original: string, now: Date): VoiceCommand {
+function parseActivity(original: string, now: Date, raw = original): VoiceCommand {
   let text = original;
 
   // "telefone 61 99999 0000"
@@ -423,10 +479,17 @@ function parseActivity(original: string, now: Date): VoiceCommand {
       `\\b(?:no\\s+|com\\s+)?endere[çc]o\\s*(?:é|:)?\\s+(.+?)(?=\\s+(?:às|as|ás|dia|hoje|amanh[ãa]|depois\\s+de|na\\s+(?:segunda|terça|terca|quarta|quinta|sexta)|no\\s+(?:sábado|sabado|domingo)|e\\s+me|me\\s+avis|avisar|com\\s+\\d)${END}|$)`,
     ),
   );
-  if (addressMatch) {
-    address = cleanup(addressMatch[1]);
+  const streetMatch = addressMatch
+    ? null
+    : text.match(
+        new RegExp(
+          `\\b(?:na|no|em)\\s+((?:rua|avenida|av\\.?|alameda|travessa|pra[çc]a|rodovia|estrada|quadra|setor|condom[íi]nio|shis|shin|sqs|sqn|qi|ql)\\s+.+?)(?=\\s+(?:às|as|ás|dia|hoje|amanh[ãa]|depois\\s+de|na\\s+(?:segunda|terça|terca|quarta|quinta|sexta)|no\\s+(?:sábado|sabado|domingo)|e\\s+me|me\\s+avis|avisar)${END}|$)`,
+        ),
+      );
+  if (addressMatch || streetMatch) {
+    address = cleanup((addressMatch ?? streetMatch)![1]);
     address = address ? formatAddress(address) : undefined;
-    text = text.replace(addressMatch[0], " ");
+    text = text.replace((addressMatch ?? streetMatch)![0], " ");
   }
 
   const advance = findAdvance(text);
@@ -485,11 +548,13 @@ function parseActivity(original: string, now: Date): VoiceCommand {
     }
   }
 
-  const minutesBefore = advance ? advance.minutes : isAlarm ? 0 : 30;
+  let minutesBefore = advance ? advance.minutes : isAlarm ? 0 : 30;
+  // "daqui a 20 minutos": avisar 30 minutos antes cairia no passado; avisa na hora.
+  if (hasTime && date.getTime() - minutesBefore * 60_000 < now.getTime()) minutesBefore = 0;
 
   return {
     kind: "activity",
-    title: capitalize(title),
+    title: capitalize(restoreCase(title, raw)),
     address,
     phone,
     repeatDays: repeat?.days,
@@ -602,7 +667,7 @@ function matchPreset(text: string) {
   return hit ? PRESETS.find((p) => p.title === hit[1]) : undefined;
 }
 
-function parseReminder(original: string, now: Date): VoiceCommand {
+function parseReminder(original: string, now: Date, raw = original): VoiceCommand {
   let text = original;
   const adv = findAdvance(text); // lembrete não tem "X minutos antes": tira da frase
   if (adv) text = removeAll(text, adv.remove);
@@ -635,7 +700,7 @@ function parseReminder(original: string, now: Date): VoiceCommand {
       : undefined;
   return {
     kind: "reminder",
-    title: capitalize(title || "Lembrete"),
+    title: capitalize(restoreCase(title || "Lembrete", raw)),
     emoji: preset?.emoji,
     date: dateFound ? dateFound.date : startOfDay(now),
     time,
@@ -696,10 +761,16 @@ const MEDICATION_SCHEDULE_RE = /\b(?:de\s+\d+\s+em\s+\d+\s+horas|a\s+cada\s+\d+\
 function isMedication(text: string): boolean {
   if (/\b(?:me\s+avis[ae]|me\s+lembr[ae]|alarme|lembrete)\b/.test(text)) return false;
   if (MEDICATION_SCHEDULE_RE.test(text) && (MEDICATION_WORD_RE.test(text) || /\btomar\b/.test(text))) return true;
+  // "tomar vitamina D todo dia às 8h" (mas não "tomar banho", "tomar café"...)
+  if (
+    /^tomar\s+(?!banho|caf[ée]|sol|[áa]gua|ch[áa]|vacina|cuidado|conta|um\s+caf)/.test(text) &&
+    /\b(?:todos\s+os\s+dias|todo\s+dia|diariamente|em\s+jejum)\b/.test(text)
+  )
+    return true;
   return new RegExp(`^(?:${COMMAND_WORDS_RE.source.slice(1)})?(?:o\\s+|um\\s+)?(?:novo\\s+)?(?:rem[ée]dio|medicamento)\\s+\\S`).test(text);
 }
 
-function parseMedication(text: string, now: Date): VoiceCommand {
+function parseMedication(text: string, now: Date, raw = text): VoiceCommand {
   let rest = text;
   let m: RegExpMatchArray | null;
   let everyHours: number | undefined;
@@ -720,10 +791,11 @@ function parseMedication(text: string, now: Date): VoiceCommand {
   let forName: string | undefined;
   if ((m = rest.match(/\b(?:para|pra|do|da)\s+(?:o\s+|a\s+)?([a-zà-ú]+)(?=\s|$)/))) {
     if (!/^(?:dor|febre|tosse|gripe|pressão|pressao|alergia|dormir|cabeça|cabeca)$/.test(m[1])) {
-      forName = capitalize(m[1]);
+      forName = capitalize(restoreCase(m[1], raw));
       rest = rest.replace(m[0], " ");
     }
   }
+  rest = rest.replace(/\b(?:todos\s+os\s+dias|todo\s+dia|diariamente)\b/g, " ");
   const time = findTime(rest);
   if (time) rest = removeAll(rest, time.remove);
   void now;
@@ -735,7 +807,7 @@ function parseMedication(text: string, now: Date): VoiceCommand {
   ).split(" ").slice(0, 3).join(" ");
   return {
     kind: "medication",
-    name: capitalize(name),
+    name: capitalize(upperLoneLetter(restoreCase(name, raw))),
     dose,
     everyHours,
     firstTime: time ? `${String(time.hours).padStart(2, "0")}:${String(time.minutes).padStart(2, "0")}` : undefined,
@@ -786,24 +858,31 @@ export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceC
 
   const text = stripPoliteness(
     normalizeNumbers(raw.toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ")),
-  );
+  )
+    // "todo dia 10" é uma vez por mês, no dia 10 (e não todo dia)
+    .replace(/\btodos?\s+(?:os\s+)?dias?\s+(\d{1,2})(?!\s*(?:h\b|h\d|:|horas?|minutos?|e\s+meia|da\s+(?:manhã|manha|tarde|noite)))\b/, "todo mês dia $1");
 
-  if (REMINDER_RE.test(text)) return parseReminder(text, now);
+  // Perguntas ("qual o tempo amanhã?") não são pedidos: a tela pede para falar de novo.
+  if (/^(?:qual|quais|quanto|quantos|quantas|como|onde|por\s*que|o\s+que|que\s+horas|será\s+que|sera\s+que|quem)\b/.test(text) || /\?\s*$/.test(raw)) {
+    return { kind: "unknown", text: capitalize(raw) };
+  }
+
+  if (REMINDER_RE.test(text)) return parseReminder(text, now, raw);
   if (PERIOD_RE.test(text)) return parsePeriod(text, now);
   if (MOVIE_RE.test(text) && !/\b(?:cinema\s+com|ir\s+ao\s+cinema)\b/.test(text)) return parseMovie(text, raw);
-  if (isMedication(text)) return parseMedication(text, now);
+  if (isMedication(text)) return parseMedication(text, now, raw);
   if (WORKOUT_RE.test(text) && findSport(text)) return parseWorkout(text, now);
   if (/\banivers[áa]rio\b/.test(text) && !/\b(festa|comprar)\b/.test(text)) {
-    return parseBirthday(text, now);
+    return parseBirthday(text, now, raw);
   }
   if (SHOPPING_RE.test(text)) return parseShopping(text);
 
   // "pagar o cartão todo mês dia 10", "agendar ginecologista": vira lembrete
-  if (LONG_REPEAT.slice(2).some((r) => r.re.test(text)) || (matchPreset(text) && !findTime(text))) return parseReminder(text, now);
+  if (LONG_REPEAT.slice(2).some((r) => r.re.test(text)) || (matchPreset(text) && !findTime(text))) return parseReminder(text, now, raw);
 
   const hasDateOrTime = Boolean(findDate(text, now, false) || findTime(text));
   if (ACTIVITY_HINT_RE.test(text) || ACTIVITY_COMMAND_RE.test(text) || hasDateOrTime) {
-    return parseActivity(text, now);
+    return parseActivity(text, now, raw);
   }
 
   return { kind: "unknown", text: capitalize(raw) };

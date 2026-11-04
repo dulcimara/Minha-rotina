@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { validBirthDate } from "@/lib/calories";
 import { DateInputBR } from "@/components/DateInputBR";
+import { BellRing, Mic, ShoppingCart } from "lucide-react";
 
-type Mode = "entrar" | "cadastrar";
+type Mode = "entrar" | "cadastrar" | "recuperar";
 
 function translateError(message: string): string {
   const m = message.toLowerCase();
@@ -40,7 +41,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      if (mode === "entrar") {
+      if (mode === "recuperar") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/nova-senha`,
+        });
+        // Só mostra erro de limite de envios; nos outros casos a mensagem é sempre a mesma,
+        // para não revelar se o e-mail tem conta no app.
+        if (error && error.message.toLowerCase().includes("rate limit")) throw error;
+        setInfo("Se este e-mail tiver conta, enviamos um link para criar uma nova senha. Veja também a caixa de spam.");
+        setMode("entrar");
+      } else if (mode === "entrar") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
@@ -80,10 +90,29 @@ export default function Login() {
         <div className="text-center space-y-2">
           <img src={appIcon} alt="" className="h-20 w-20 mx-auto drop-shadow-[0_10px_18px_rgb(0_0_0/0.18)]" />
           <h1 className="font-brand text-3xl text-foreground">Minha Rotina</h1>
+          {mode !== "recuperar" && <p className="text-base font-medium text-foreground">Organize o seu dia falando</p>}
           <p className="text-sm text-muted-foreground">
-            {mode === "entrar" ? "Entre para ver sua rotina" : "Crie sua conta gratuita"}
+            {mode === "entrar"
+              ? "Grátis e sem anúncios. Entre para ver sua rotina."
+              : mode === "recuperar"
+                ? "Informe seu e-mail para criar uma nova senha"
+                : "Crie sua conta gratuita"}
           </p>
         </div>
+
+        {mode !== "recuperar" && (
+          <ul className="space-y-2 rounded-2xl bg-secondary/50 p-3 text-sm" data-testid="login-benefits">
+            <li className="flex items-center gap-2.5">
+              <Mic className="h-4 w-4 shrink-0 text-primary" /> Fale e o app anota compromissos, remédios e listas
+            </li>
+            <li className="flex items-center gap-2.5">
+              <BellRing className="h-4 w-4 shrink-0 text-primary" /> Avisos na hora certa, chamando você pelo nome
+            </li>
+            <li className="flex items-center gap-2.5">
+              <ShoppingCart className="h-4 w-4 shrink-0 text-primary" /> Lista de compras dividida com a família
+            </li>
+          </ul>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "cadastrar" && (
@@ -133,8 +162,25 @@ export default function Login() {
             />
           </div>
 
+          {mode !== "recuperar" && (
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Senha</Label>
+              {mode === "entrar" && (
+                <button
+                  type="button"
+                  className="text-xs text-primary underline-offset-4 hover:underline"
+                  onClick={() => {
+                    setMode("recuperar");
+                    setError(null);
+                    setInfo(null);
+                  }}
+                  data-testid="link-forgot-password"
+                >
+                  Esqueci minha senha
+                </button>
+              )}
+            </div>
             <Input
               id="password"
               type="password"
@@ -146,6 +192,7 @@ export default function Login() {
               required
             />
           </div>
+          )}
 
           {mode === "cadastrar" && (
             <label className="flex items-start gap-2 text-sm">
@@ -170,12 +217,12 @@ export default function Login() {
           {info && <p className="text-sm text-primary">{info}</p>}
 
           <Button type="submit" className="w-full" disabled={loading || (mode === "cadastrar" && (!name.trim() || !birthDate || !accepted))}>
-            {loading ? "Aguarde..." : mode === "entrar" ? "Entrar" : "Criar conta"}
+            {loading ? "Aguarde..." : mode === "entrar" ? "Entrar" : mode === "recuperar" ? "Enviar link" : "Criar conta"}
           </Button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
-          {mode === "entrar" ? "Ainda não tem conta?" : "Já tem conta?"}{" "}
+          {mode === "entrar" ? "Ainda não tem conta?" : mode === "recuperar" ? "Lembrou a senha?" : "Já tem conta?"}{" "}
           <button
             type="button"
             className="text-primary font-medium underline-offset-4 hover:underline"
