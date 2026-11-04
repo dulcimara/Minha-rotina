@@ -200,7 +200,7 @@ export default function Home() {
         )}
         <Suspense fallback={<p className="py-10 text-center text-sm text-muted-foreground">Carregando...</p>}>
           {tab === "agenda" && (
-            <AgendaTab activities={activities} onSave={(input) => saveMutation.mutate({ input })} />
+            <AgendaTab activities={activities} onSave={(input) => saveMutation.mutate({ input })} cardHandlers={cardHandlers} />
           )}
           {tab === "compras" && (
             <ListsTab listId={listId} onSelectList={setListId} onVoice={() => openVoice("voice", "shopping")} />
