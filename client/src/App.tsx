@@ -7,6 +7,8 @@ import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import { AppLock } from "@/components/AppLock";
 import Privacy from "@/pages/Privacy";
+import NewPassword from "@/pages/NewPassword";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { supabaseConfigured } from "@/lib/supabase";
@@ -60,6 +62,14 @@ function Gate() {
 }
 
 function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
   // A política de privacidade abre para qualquer pessoa, mesmo sem entrar.
   if (window.location.pathname.startsWith("/privacidade")) {
     return (
@@ -73,7 +83,8 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <AuthProvider>
-          <Gate />
+          {/* Link do e-mail "Esqueci minha senha": fora da trava e da tela inicial */}
+          {window.location.pathname.startsWith("/nova-senha") ? <NewPassword /> : <Gate />}
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

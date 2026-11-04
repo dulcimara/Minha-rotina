@@ -1,12 +1,37 @@
 // Service worker do Minha Rotina.
 // Permite instalar o app e receber notificações, mesmo com o app fechado.
-// Não guarda nada em cache, para o app sempre abrir na versão mais nova.
+// O app sempre vem da internet (versão mais nova). Só a página "sem internet"
+// fica guardada, para aparecer quando o celular estiver sem conexão.
 
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+const CACHE = "minha-rotina-offline-v1";
+const OFFLINE_FILES = ["/offline.html", "/icon-192.png"];
 
-// Necessário para o Chrome considerar o app instalável; deixa a internet responder normalmente.
-self.addEventListener("fetch", () => {});
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(OFFLINE_FILES))
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+// Ao abrir uma tela: tenta a internet; se não houver conexão, mostra a página "sem internet".
+// Os outros pedidos (dados, imagens) seguem normalmente pela internet.
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode !== "navigate") return;
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match("/offline.html").then((r) => r || Response.error())),
+  );
+});
 
 // Aviso enviado pelo servidor (função enviar-avisos do Supabase).
 self.addEventListener("push", (event) => {
