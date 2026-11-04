@@ -174,9 +174,6 @@ export interface Reminder {
   repeat: Repeat;
   alert: boolean;
   notes?: string;
-  /** frase lida em voz alta na hora do aviso (vazio = aviso padrão) */
-  voiceText?: string;
-  voiceGender?: "male" | "female";
   doneAt?: Date;
   createdAt: Date;
 }
@@ -191,8 +188,6 @@ const toReminder = (r: Record<string, unknown>): Reminder => ({
   repeat: ((r.repeat as Repeat | null) ?? "nao") as Repeat,
   alert: r.alert !== false,
   notes: (r.notes as string | null) ?? undefined,
-  voiceText: (r.voice_text as string | null) ?? undefined,
-  voiceGender: (r.voice_gender as "male" | "female" | null) ?? undefined,
   doneAt: r.done_at ? new Date(r.done_at as string) : undefined,
   createdAt: new Date(r.created_at as string),
 });
@@ -216,10 +211,7 @@ export async function fetchReminders(): Promise<Reminder[]> {
   return (data ?? []).map((r) => toReminder(r as Record<string, unknown>));
 }
 
-export async function saveReminder(
-  input: Omit<Reminder, "id" | "createdAt" | "doneAt">,
-  id?: string,
-): Promise<{ voiceSaved: boolean }> {
+export async function saveReminder(input: Omit<Reminder, "id" | "createdAt" | "doneAt">, id?: string) {
   const row = {
     text: input.text.trim(),
     emoji: input.emoji || null,
@@ -229,25 +221,8 @@ export async function saveReminder(
     alert: input.alert,
     notes: input.notes?.trim() || null,
   };
-  const voiceText = input.alert ? input.voiceText?.trim().slice(0, 300) || null : null;
-  const voice = { voice_text: voiceText, voice_gender: voiceText ? input.voiceGender ?? "female" : null };
-  const write = (data: Record<string, unknown>) =>
-    id ? supabase.from("reminders").update(data).eq("id", id) : supabase.from("reminders").insert(data);
-
-  const { error } = await write({ ...row, ...voice });
-  if (!error) return { voiceSaved: true };
-  // Etapa 13 ainda não rodada: salva o resto e avisa que a frase ficou de fora.
-  if (isMissingColumn(error)) {
-    const retry = await write(row);
-    if (retry.error) throw retry.error;
-    return { voiceSaved: !voiceText };
-  }
-  throw error;
-}
-
-/** Erro de coluna que ainda não existe no banco (SQL novo não rodado). */
-function isMissingColumn(error: { code?: string }) {
-  return error.code === "42703" || error.code === "PGRST204";
+  const { error } = id ? await supabase.from("reminders").update(row).eq("id", id) : await supabase.from("reminders").insert(row);
+  if (error) throw error;
 }
 
 /** Marca como feito. Se repete, avança para a próxima data e continua pendente. */

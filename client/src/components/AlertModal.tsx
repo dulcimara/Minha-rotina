@@ -1,7 +1,7 @@
 import { formatPhone } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { BellRing, MapPin, Phone } from "lucide-react";
+import { BellRing, MapPin, Phone, Volume2 } from "lucide-react";
 import type { AlertItem } from "@/hooks/use-alerts";
 
 interface AlertModalProps {
@@ -10,9 +10,11 @@ interface AlertModalProps {
   onSnooze: () => void;
   /** remédio: marcar a dose como tomada */
   onTaken?: () => void;
+  /** falar o aviso de novo (se o celular não deixou falar sozinho, um toque resolve) */
+  onSpeak?: () => void;
 }
 
-export function AlertModal({ alert, onDismiss, onSnooze, onTaken }: AlertModalProps) {
+export function AlertModal({ alert, onDismiss, onSnooze, onTaken, onSpeak }: AlertModalProps) {
   return (
     <Dialog open={!!alert} onOpenChange={(o) => !o && onDismiss()}>
       <DialogContent className="sm:max-w-sm border-t-8 border-t-accent text-center" data-testid="dialog-alert">
@@ -41,6 +43,11 @@ export function AlertModal({ alert, onDismiss, onSnooze, onTaken }: AlertModalPr
               </a>
             )}
           </div>
+        )}
+        {onSpeak && alert?.spoken && (
+          <Button variant="ghost" size="sm" className="mx-auto gap-1.5" onClick={onSpeak} data-testid="button-alert-speak">
+            <Volume2 className="h-4 w-4" /> Ouvir
+          </Button>
         )}
         <div className="grid grid-cols-2 gap-2 pt-2">
           <Button variant="outline" onClick={onSnooze} data-testid="button-alert-snooze">

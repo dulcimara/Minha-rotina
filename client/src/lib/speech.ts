@@ -165,17 +165,48 @@ function pickVoice(gender?: "male" | "female"): SpeechSynthesisVoice | undefined
   return pool.find((v) => hint.test(v.name)) ?? pool[0];
 }
 
-export function speak(text: string, gender?: "male" | "female") {
-  if (!("speechSynthesis" in window) || !text) return;
+let speechUnlocked = false;
+
+/**
+ * O iPhone e alguns Android só deixam o app falar sozinho (na hora de um aviso)
+ * se a voz já tiver sido usada depois de um toque na tela. Por isso, no primeiro
+ * toque, falamos um texto vazio e mudo (main.tsx).
+ */
+export function unlockSpeech() {
+  if (speechUnlocked || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  speechUnlocked = true;
   try {
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
     u.lang = "pt-BR";
-    const voice = pickVoice(gender);
-    if (voice) u.voice = voice;
-    u.rate = 1;
     window.speechSynthesis.speak(u);
   } catch {
-    // sem voz disponível: ignora
+    // sem voz disponível
+  }
+}
+
+export function speak(text: string, gender?: "male" | "female") {
+  if (typeof window === "undefined" || !("speechSynthesis" in window) || !text) return;
+  const synth = window.speechSynthesis;
+  const say = () => {
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "pt-BR";
+      const voice = pickVoice(gender);
+      if (voice) u.voice = voice;
+      u.rate = 1;
+      // No Android a voz às vezes fica "pausada" depois do app ir para segundo plano.
+      synth.resume();
+      synth.speak(u);
+    } catch {
+      // sem voz disponível: ignora
+    }
+  };
+  // Falar logo depois de cancelar faz o Chrome engolir a fala; espera um pouco.
+  if (synth.speaking || synth.pending) {
+    synth.cancel();
+    setTimeout(say, 120);
+  } else {
+    say();
   }
 }

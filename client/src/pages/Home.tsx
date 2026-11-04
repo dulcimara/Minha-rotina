@@ -262,6 +262,7 @@ export default function Home() {
         alert={alerts.current}
         onDismiss={alerts.dismiss}
         onSnooze={() => alerts.snooze(5)}
+        onSpeak={alerts.repeat}
         onTaken={() => {
           const d = alerts.current?.dose;
           if (d) {
