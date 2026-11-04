@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/NativeSelect";
-import { ArrowLeft, Check, Pencil, Plus, Repeat as RepeatIcon, RotateCcw, Trash2, Users, Volume2 } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Plus, Repeat as RepeatIcon, RotateCcw, Trash2, Users } from "lucide-react";
 import { AppIcon } from "@/components/AppIcons";
 import { ReminderGlyph, ReminderIcon } from "@/components/ReminderGlyph";
 import { ShareDialog, SharedBadge } from "@/components/ShareDialog";
@@ -18,7 +18,6 @@ import { refresh, useReminders, useUserId } from "@/hooks/use-data";
 import { completeReminder, deleteReminder, reopenReminder, saveReminder, type Reminder } from "@/lib/data";
 import { PRESETS, REPEATS, dueState, type Repeat } from "@/lib/lembretes";
 import { cn } from "@/lib/utils";
-import { VoiceChoice, type VoiceGender } from "@/components/VoiceChoice";
 
 const todayKey = () => format(new Date(), "yyyy-MM-dd");
 
@@ -55,16 +54,6 @@ export function useCompleteReminder() {
   };
 }
 
-/** "Marcar consulta" → "Hora de marcar consulta." */
-export function suggestedPhrase(text: string): string {
-  const t = text.trim().replace(/[.!]+$/, "");
-  if (!t) return "";
-  // mantém maiúscula de nomes próprios e siglas ("Pedro", "IPVA"); só baixa a primeira palavra comum
-  const [first, ...rest] = t.split(" ");
-  const keepCase = first.length > 1 && first === first.toUpperCase();
-  return `Hora de ${keepCase ? first : first.toLowerCase()}${rest.length ? " " + rest.join(" ") : ""}.`;
-}
-
 function ReminderForm({ initial, onDone, onShare }: { initial?: Reminder; onDone: () => void; onShare?: () => void }) {
   const { toast } = useToast();
   const userId = useUserId();
@@ -75,34 +64,17 @@ function ReminderForm({ initial, onDone, onShare }: { initial?: Reminder; onDone
   const [repeat, setRepeat] = useState<Repeat>(initial?.repeat ?? "nao");
   const [alert, setAlert] = useState(initial?.alert ?? true);
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [voice, setVoice] = useState(Boolean(initial?.voiceText));
-  const [voiceText, setVoiceText] = useState(initial?.voiceText ?? "");
-  const [voiceGender, setVoiceGender] = useState<VoiceGender>(initial?.voiceGender ?? "female");
   const [saving, setSaving] = useState(false);
-  const missingPhrase = alert && voice && !voiceText.trim();
-
-  const chooseVoice = (on: boolean) => {
-    setVoice(on);
-    // Sugere a frase a partir do lembrete: "Marcar consulta" → "Hora de marcar consulta."
-    if (on && !voiceText.trim() && text.trim()) setVoiceText(suggestedPhrase(text));
-  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || missingPhrase) return;
+    if (!text.trim()) return;
     setSaving(true);
     try {
-      const { voiceSaved } = await saveReminder(
-        { text, emoji, dueDate, dueTime, repeat, alert, notes, voiceText: voice ? voiceText : undefined, voiceGender },
-        initial?.id,
-      );
+      await saveReminder({ text, emoji, dueDate, dueTime, repeat, alert, notes }, initial?.id);
       if (!initial) track("criou_lembrete", { repeticao: repeat, pronto: PRESETS.some((p) => p.title === text) ? "sim" : "nao" });
       refresh(userId, "reminders");
-      toast(
-        voiceSaved
-          ? { title: initial ? "Lembrete atualizado" : "Lembrete criado" }
-          : { title: "Lembrete salvo sem a frase falada", description: "Falta atualizar o banco do app (etapa 13). Por enquanto ele avisa do jeito padrão." },
-      );
+      toast({ title: initial ? "Lembrete atualizado" : "Lembrete criado" });
       onDone();
     } catch (err) {
       toast({ title: "Não foi possível salvar", description: (err as Error).message, variant: "destructive" });
@@ -189,20 +161,7 @@ function ReminderForm({ initial, onDone, onShare }: { initial?: Reminder; onDone
         <Switch id="rm-alert" checked={alert} onCheckedChange={setAlert} />
       </div>
 
-      {alert && (
-        <VoiceChoice
-          idPrefix="reminder"
-          voice={voice}
-          onVoiceChange={chooseVoice}
-          text={voiceText}
-          onTextChange={setVoiceText}
-          gender={voiceGender}
-          onGenderChange={setVoiceGender}
-          placeholder="Ex.: Hora de marcar a consulta!"
-        />
-      )}
-
-      <Button type="submit" className="w-full" disabled={!text.trim() || missingPhrase || saving} data-testid="button-reminder-save">
+      <Button type="submit" className="w-full" disabled={!text.trim() || saving} data-testid="button-reminder-save">
         {initial ? "Salvar alterações" : "Criar lembrete"}
       </Button>
       {onShare && (
@@ -246,12 +205,6 @@ function Row({ r, onEdit, onShare }: { r: Reminder; onEdit: () => void; onShare:
             <span className="text-muted-foreground font-normal">
               {" "}
               · <RepeatIcon className="inline h-3 w-3 -mt-0.5" /> {REPEATS.find((x) => x.value === r.repeat)?.label.toLowerCase()}
-            </span>
-          )}
-          {!done && r.alert && r.voiceText && (
-            <span className="text-muted-foreground font-normal">
-              {" "}
-              · <Volume2 className="inline h-3 w-3 -mt-0.5" aria-label="com frase falada" />
             </span>
           )}
           {r.notes && <span className="text-muted-foreground font-normal"> · {r.notes}</span>}

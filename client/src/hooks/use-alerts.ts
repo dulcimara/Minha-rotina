@@ -175,17 +175,14 @@ export function useAlerts() {
       const at = new Date(`${r.dueDate}T${r.dueTime || "09:00"}:00`);
       const diff = now.getTime() - at.getTime();
       if (Number.isNaN(diff) || diff < 0 || diff > LATE_TOLERANCE_MS) continue;
-      const key = `rem:${r.id}:${r.dueDate}`;
+      // a hora entra na chave: se a pessoa mudar a hora no mesmo dia, avisa de novo
+      const key = `rem:${r.id}:${r.dueDate}:${r.dueTime || "09:00"}`;
       if (fired.current.has(key)) continue;
       due.push({
         key,
         title: `${r.emoji ?? "🔔"} ${r.text}`,
         subtitle: `Lembrete · ${r.dueTime || "09:00"}${r.notes ? ` · ${r.notes}` : ""}`,
-        spoken: r.voiceText
-          ? (name ? `${name}, ` : "") + r.voiceText
-          : `${name ? `${name}, l` : "L"}embrete: ${r.text}.${r.notes ? ` ${r.notes}.` : ""}`,
-        gender: r.voiceText ? r.voiceGender : undefined,
-        customVoice: Boolean(r.voiceText),
+        spoken: `${name ? `${name}, você` : "Você"} tem um lembrete: ${r.text}.`,
       });
     }
 
@@ -247,7 +244,13 @@ export function useAlerts() {
     dismiss();
   };
 
-  return { current: queue[0] ?? null, dismiss, snooze };
+  /** fala o aviso atual de novo (toque da pessoa: o celular sempre deixa) */
+  const repeat = () => {
+    const current = queue[0];
+    if (current) speak(current.spoken, current.gender ?? settingsRef.current.voiceGender);
+  };
+
+  return { current: queue[0] ?? null, dismiss, snooze, repeat };
 }
 
 // ---------------------------------------------------------------
