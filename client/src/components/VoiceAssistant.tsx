@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics";
 import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -391,6 +392,7 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
         spoken = "Fim da menstruação registrado.";
       }
       toast({ title: "Salvo!", description: spoken });
+      track("usou_voz", { tipo: draft.kind }); // ciclo e remédios não são enviados (analytics.ts)
       speak(spoken);
       close();
     } catch (err) {

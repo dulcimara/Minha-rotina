@@ -12,14 +12,24 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { supabaseConfigured } from "@/lib/supabase";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { readSettings } from "@/lib/settings";
 import { applyPalette } from "@/lib/palettes";
+import { startAnalytics } from "@/lib/analytics";
+import { recordActiveDay } from "@/lib/admin";
+
+// A área de gestão só é baixada por quem abre /admin
+const Admin = lazy(() => import("@/pages/Admin"));
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/admin">
+        <Suspense fallback={<p className="p-10 text-center text-muted-foreground">Carregando...</p>}>
+          <Admin />
+        </Suspense>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -32,6 +42,13 @@ function Gate() {
   useEffect(() => {
     if (user) applyPalette(palette);
   }, [user, palette]);
+  // Estatísticas: o dia de uso (nosso banco) e o Google Analytics só com consentimento
+  const analyticsConsent = readSettings(user).analytics;
+  useEffect(() => {
+    if (!user) return;
+    void recordActiveDay(user.id);
+    startAnalytics(analyticsConsent);
+  }, [user, analyticsConsent]);
 
   if (!supabaseConfigured) {
     return (

@@ -1,3 +1,5 @@
+import { Switch } from "@/components/ui/switch";
+import { startAnalytics, track } from "@/lib/analytics";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,8 @@ export function Onboarding() {
   const [palette, setPalette] = useState(readSettings(user).palette);
   const [push, setPush] = useState<PushState | null>(null);
   const [picks, setPicks] = useState<ReminderPicks>({});
+  // consentimento das estatísticas: desligado até a pessoa ligar
+  const [analytics, setAnalytics] = useState(false);
   const [savingPicks, setSavingPicks] = useState(false);
   const userId = useUserId();
   const { toast } = useToast();
@@ -65,7 +69,11 @@ export function Onboarding() {
 
   const finish = () => {
     setOpen(false);
-    void supabase.auth.updateUser({ data: { onboarded_at: new Date().toISOString() } });
+    void supabase.auth.updateUser({ data: { onboarded_at: new Date().toISOString(), analytics_consent: analytics } });
+    if (analytics) {
+      startAnalytics(true);
+      track("primeiro_acesso_concluido");
+    }
   };
 
   if (done) return null;
@@ -100,6 +108,16 @@ export function Onboarding() {
                 void saveSettings({ palette: id });
               }}
             />
+            <label className="flex items-start gap-3 rounded-xl bg-muted/50 p-3 text-sm" htmlFor="onb-analytics">
+              <Switch id="onb-analytics" checked={analytics} onCheckedChange={setAnalytics} className="mt-0.5" data-testid="switch-onboarding-analytics" />
+              <span>
+                <span className="block font-medium">Ajudar a melhorar o app</span>
+                <span className="block text-xs text-muted-foreground">
+                  Estatísticas anônimas de uso (Google Analytics). Nunca seu nome, o que você cadastra ou dados de saúde. Dá para mudar em
+                  Configurações.
+                </span>
+              </span>
+            </label>
           </div>
         )}
 

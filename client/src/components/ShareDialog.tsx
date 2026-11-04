@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics";
 import { useState, type FormEvent } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ export function ShareDialog({ open, onOpenChange, area: fixedArea, itemKey, item
     setBusy(true);
     try {
       await shareWith(email, area, permission, key, target.itemLabel);
+      track("compartilhou", { area, permissao: permission, escopo: key ? "item" : "area" });
       refresh(userId, "shares");
       toast({ title: "Compartilhado!", description: `${email.trim()} já consegue ${permission === "editar" ? "ver e editar" : "ver"} ${shareTargetLabel(target)}.` });
       setEmail("");

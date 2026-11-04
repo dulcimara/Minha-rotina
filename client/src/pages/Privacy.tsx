@@ -65,6 +65,21 @@ export default function Privacy() {
           </section>
 
           <section>
+            <h2>Estatísticas de uso</h2>
+            <p>
+              Para saber quantas pessoas usam o app, guardamos o dia em que cada conta abriu o app (só a data, sem o que foi
+              feito). A responsável pelo app vê apenas totais e a lista de contas (nome, e-mail, data de cadastro e do último
+              acesso); nunca o conteúdo do que você cadastra.
+            </p>
+            <p>
+              Se você ligar "Ajudar a melhorar o app" (desligado até você escolher), o app envia ao Google Analytics estatísticas
+              anônimas de uso: telas abertas e recursos usados, tipo de aparelho e cidade aproximada. Nunca enviamos nome, e-mail,
+              o que você cadastra ou dados de saúde (ciclo, remédios, filhos). O Google atua como operador; dá para desligar a
+              qualquer momento em Configurações → Estatísticas de uso.
+            </p>
+          </section>
+
+          <section>
             <h2>Trava com Face ID, digital ou PIN</h2>
             <p>
               Se você ligar a trava, quem confere o seu rosto, digital ou PIN é o próprio celular. O app recebe só a resposta
