@@ -1,3 +1,4 @@
+import { formatPhone } from "@/lib/utils";
 import { AppIcon } from "@/components/AppIcons";
 import { DateInputBR } from "@/components/DateInputBR";
 import { VaccineCard } from "@/components/VaccineCard";
@@ -184,7 +185,7 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
           {child.birthDate && line(CalendarClock, `Nasceu em ${format(new Date(child.birthDate + "T12:00"), "dd/MM/yyyy")}`)}
           {line(School, child.schoolGrade ? `Turma: ${child.schoolGrade}` : undefined)}
           {line(Stethoscope, child.pediatrician)}
-          {child.pediatricianPhone && line(Phone, child.pediatricianPhone, `tel:${child.pediatricianPhone.replace(/[^\d+]/g, "")}`)}
+          {child.pediatricianPhone && line(Phone, formatPhone(child.pediatricianPhone), `tel:${child.pediatricianPhone.replace(/[^\d+]/g, "")}`)}
           {child.allergies && (
             <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">⚠️ {child.allergies}</p>
           )}

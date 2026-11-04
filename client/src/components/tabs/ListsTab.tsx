@@ -533,7 +533,8 @@ function ListItems({
 // ---------------------------------------------------------------
 
 /** Valor especial de "lista aberta" para Filmes e séries. */
-export const MOVIES = "filmes";
+export { MOVIES } from "@/lib/list-ids";
+import { MOVIES } from "@/lib/list-ids";
 
 /** Lista de outra pessoa aberta: "shared:<dona>:<compras ou id da lista>" */
 export const sharedListKey = (ownerId: string, key: string) => `shared:${ownerId}:${key}`;

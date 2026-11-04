@@ -14,12 +14,19 @@ import { refresh, useUserId } from "@/hooks/use-data";
 import { useToast } from "@/hooks/use-toast";
 import { InstallContent } from "@/components/InstallApp";
 
+// Ordem: primeiro o que o app tem de diferente (falar), depois o que deixa ele útil desde o
+// primeiro dia (lembretes e avisos); as cores ficam por último, como um toque pessoal.
+const STEP_VOICE = 0;
+const STEP_REMINDERS = 1;
+const STEP_PUSH = 2;
+const STEP_INSTALL = 3;
+const STEP_COLORS = 4;
 const STEPS = [
-  { icon: PaletteIcon, title: "Escolha as suas cores" },
-  { icon: BellPlus, title: "Seus lembretes" },
   { icon: Mic, title: "Fale com o app" },
+  { icon: BellPlus, title: "Seus lembretes" },
   { icon: BellRing, title: "Avisos na hora certa" },
   { icon: Smartphone, title: "Instale no celular" },
+  { icon: PaletteIcon, title: "Escolha as suas cores" },
 ];
 
 /** Boas-vindas em 5 passos, mostradas uma vez por conta. */
@@ -37,7 +44,7 @@ export function Onboarding() {
 
   /** Ao sair do passo dos lembretes, cria os escolhidos (uma vez só). */
   const next = async () => {
-    if (step === 1 && Object.keys(picks).length) {
+    if (step === STEP_REMINDERS && Object.keys(picks).length) {
       setSavingPicks(true);
       try {
         await savePicks(picks);
@@ -73,7 +80,7 @@ export function Onboarding() {
           <div className="mx-auto h-14 w-14 rounded-2xl bg-mic text-white flex items-center justify-center shadow-md">
             <Icon className="h-7 w-7" />
           </div>
-          {step === 0 && <p className="text-sm text-muted-foreground">Boas-vindas{name ? `, ${name}` : ""}! 💜</p>}
+          {step === 0 && <p className="text-sm text-muted-foreground">Boas-vindas{name ? `, ${name}` : ""}!</p>}
           <DialogTitle className="text-xl font-display font-semibold">{title}</DialogTitle>
           <DialogDescription className="sr-only">Passo {step + 1} de {STEPS.length}</DialogDescription>
           <div className="flex justify-center gap-1.5" aria-hidden="true">
@@ -83,7 +90,7 @@ export function Onboarding() {
           </div>
         </div>
 
-        {step === 0 && (
+        {step === STEP_COLORS && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Toque numa paleta para ver o app mudar. Dá para trocar depois em Configurações.</p>
             <PalettePicker
@@ -96,12 +103,12 @@ export function Onboarding() {
           </div>
         )}
 
-        {step === 1 && <OnboardingReminders picks={picks} onChange={setPicks} />}
+        {step === STEP_REMINDERS && <OnboardingReminders picks={picks} onChange={setPicks} />}
 
-        {step === 2 && (
+        {step === STEP_VOICE && (
           <div className="space-y-3 text-sm">
             <p>
-              Toque no <strong>microfone rosa</strong> no meio da barra de baixo e fale tudo de uma vez. Eu mostro o que entendi para
+              Aqui você não precisa preencher formulário. Toque no <strong>microfone</strong> no meio da barra de baixo e fale tudo de uma vez. Eu mostro o que entendi para
               você conferir antes de salvar.
             </p>
             <ul className="space-y-1.5">
@@ -113,7 +120,7 @@ export function Onboarding() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === STEP_PUSH && (
           <div className="space-y-3 text-sm">
             <p>
               Eu aviso dos compromissos, remédios e aniversários com som e falando o seu nome. Para os avisos chegarem mesmo com
@@ -142,7 +149,7 @@ export function Onboarding() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === STEP_INSTALL && (
           <div className="space-y-3 text-sm">
             <p>Instalado, o Minha Rotina fica na tela do celular como os outros apps: abre em tela cheia e avisa na hora certa.</p>
             <InstallContent />

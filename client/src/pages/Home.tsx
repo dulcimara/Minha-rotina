@@ -1,5 +1,5 @@
 import { useAppIcon } from "@/lib/palettes";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -8,9 +8,11 @@ import { VoiceAssistant } from "@/components/VoiceAssistant";
 import { AlertModal } from "@/components/AlertModal";
 import { MonthlyShoppingPrompt } from "@/components/MonthlyShoppingPrompt";
 import { TodayTab } from "@/components/tabs/TodayTab";
-import { AgendaTab } from "@/components/tabs/AgendaTab";
-import { ListsTab, MOVIES } from "@/components/tabs/ListsTab";
-import { CycleTab } from "@/components/tabs/CycleTab";
+import { MOVIES } from "@/lib/list-ids";
+// As outras abas só carregam quando a pessoa abre (o app abre mais rápido no 4G).
+const AgendaTab = lazy(() => import("@/components/tabs/AgendaTab").then((m) => ({ default: m.AgendaTab })));
+const ListsTab = lazy(() => import("@/components/tabs/ListsTab").then((m) => ({ default: m.ListsTab })));
+const CycleTab = lazy(() => import("@/components/tabs/CycleTab").then((m) => ({ default: m.CycleTab })));
 import { Baby, CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, Plus, Settings } from "lucide-react";
 import { ChildrenDialog } from "@/components/ChildrenDialog";
 import { Onboarding } from "@/components/Onboarding";
@@ -189,13 +191,15 @@ export default function Home() {
             cardHandlers={cardHandlers}
           />
         )}
-        {tab === "agenda" && (
-          <AgendaTab activities={activities} onSave={(input) => saveMutation.mutate({ input })} />
-        )}
-        {tab === "compras" && (
-          <ListsTab listId={listId} onSelectList={setListId} onVoice={() => openVoice("voice", "shopping")} />
-        )}
-        {tab === "ciclo" && <CycleTab />}
+        <Suspense fallback={<p className="py-10 text-center text-sm text-muted-foreground">Carregando...</p>}>
+          {tab === "agenda" && (
+            <AgendaTab activities={activities} onSave={(input) => saveMutation.mutate({ input })} />
+          )}
+          {tab === "compras" && (
+            <ListsTab listId={listId} onSelectList={setListId} onVoice={() => openVoice("voice", "shopping")} />
+          )}
+          {tab === "ciclo" && <CycleTab />}
+        </Suspense>
       </main>
 
       {/* Barra de navegação inferior com o microfone no centro */}

@@ -30,6 +30,16 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Bibliotecas em arquivos separados: quando o app muda, o celular só baixa o que mudou.
+        manualChunks: {
+          react: ["react", "react-dom"],
+          supabase: ["@supabase/supabase-js"],
+          datas: ["date-fns"],
+        },
+      },
+    },
   },
   server: {
     fs: {

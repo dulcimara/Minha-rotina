@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { PRESETS, REPEATS, type Repeat } from "@/lib/lembretes";
 import { saveReminder } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { ReminderIcon } from "@/components/ReminderGlyph";
 
 export type ReminderPicks = Record<string, { date: string; repeat: Repeat }>;
 
@@ -45,7 +46,7 @@ export function OnboardingReminders({ picks, onChange }: { picks: ReminderPicks;
                 on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted/60",
               )}
             >
-              {on ? <Check className="h-3.5 w-3.5" /> : <span>{p.emoji}</span>} {p.title}
+              {on ? <Check className="h-3.5 w-3.5" /> : <ReminderIcon emoji={p.emoji} className="h-3.5 w-3.5" />} {p.title}
             </button>
           );
         })}
@@ -55,8 +56,8 @@ export function OnboardingReminders({ picks, onChange }: { picks: ReminderPicks;
         <ul className="space-y-2" data-testid="onboarding-reminder-list">
           {chosen.map((p) => (
             <li key={p.title} className="rounded-xl border bg-card p-2.5 space-y-2">
-              <p className="font-medium">
-                {p.emoji} {p.title}
+              <p className="flex items-center gap-1.5 font-medium">
+                <ReminderIcon emoji={p.emoji} /> {p.title}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <Input
