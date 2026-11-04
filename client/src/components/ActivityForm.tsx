@@ -12,7 +12,8 @@ import { Card } from "@/components/ui/card";
 import { NativeSelect } from "@/components/NativeSelect";
 import { WeekdayPicker } from "@/components/WeekdayPicker";
 import { useChildren } from "@/hooks/use-data";
-import { Bell, Volume2, MessageSquare, User, MapPin, Phone } from "lucide-react";
+import { Bell, MapPin, Phone } from "lucide-react";
+import { VoiceChoice } from "@/components/VoiceChoice";
 import { CATEGORIES, REMINDER_OPTIONS } from "@/lib/options";
 import type { Activity, ActivityInput } from "@/lib/data";
 
@@ -198,57 +199,15 @@ export function ActivityForm({ onSave, onCancel, activity, defaultDate, withCale
                   </NativeSelect>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={reminderType === "text" ? "default" : "outline"}
-                    onClick={() => setReminderType("text")}
-                    className="justify-start gap-2"
-                  >
-                    <MessageSquare className="h-4 w-4" /> Aviso padrão
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={reminderType === "voice" ? "default" : "outline"}
-                    onClick={() => setReminderType("voice")}
-                    className="justify-start gap-2"
-                  >
-                    <Volume2 className="h-4 w-4" /> Frase falada
-                  </Button>
-                </div>
-
-                {reminderType === "voice" && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="voice-text">Frase que o app vai falar *</Label>
-                      <Textarea
-                        id="voice-text"
-                        value={voiceText}
-                        onChange={(e) => setVoiceText(e.target.value)}
-                        placeholder="Ex.: Hora de sair para o dentista! Leve a carteirinha."
-                        rows={2}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        variant={voiceGender === "female" ? "default" : "outline"}
-                        onClick={() => setVoiceGender("female")}
-                        className="justify-start gap-2"
-                      >
-                        <User className="h-4 w-4" /> Voz feminina
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={voiceGender === "male" ? "default" : "outline"}
-                        onClick={() => setVoiceGender("male")}
-                        className="justify-start gap-2"
-                      >
-                        <User className="h-4 w-4" /> Voz masculina
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <VoiceChoice
+                  idPrefix="activity"
+                  voice={reminderType === "voice"}
+                  onVoiceChange={(v) => setReminderType(v ? "voice" : "text")}
+                  text={voiceText}
+                  onTextChange={setVoiceText}
+                  gender={voiceGender}
+                  onGenderChange={setVoiceGender}
+                />
               </div>
             )}
           </Card>

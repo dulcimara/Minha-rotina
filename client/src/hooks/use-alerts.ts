@@ -30,6 +30,8 @@ export interface AlertItem {
   dose?: { medicationId: string; day: string; time: string };
   spoken: string;
   gender?: "male" | "female";
+  /** a pessoa escreveu uma frase para este aviso: fala mesmo no modo "só som" */
+  customVoice?: boolean;
 }
 
 const CHECK_EVERY_MS = 15_000;
@@ -79,6 +81,7 @@ function activityAlert(a: Activity, now: Date, name?: string): AlertItem | null 
         ? (name ? `${name}, ` : "") + a.reminderVoiceText
         : alertSentence(a, now, name),
     gender: a.reminderVoiceGender,
+    customVoice: a.reminderType === "voice" && Boolean(a.reminderVoiceText),
   };
 }
 
@@ -127,7 +130,8 @@ export function useAlerts() {
     setQueue((q) => (q.some((i) => i.key === item.key) ? q : [...q, item]));
     // Conforme a configuração da conta: toque + voz, só som, ou silencioso.
     const { alertMode, voiceGender, vibrate: shouldVibrate } = settingsRef.current;
-    if (alertMode === "voice") {
+    // Frase escrita para o aviso fala mesmo no modo "só som"; o silencioso é respeitado.
+    if (alertMode === "voice" || (alertMode === "sound" && item.customVoice)) {
       playChime(1);
       setTimeout(() => speak(item.spoken, item.gender ?? voiceGender), 900);
     } else if (alertMode === "sound") {
@@ -177,7 +181,11 @@ export function useAlerts() {
         key,
         title: `${r.emoji ?? "🔔"} ${r.text}`,
         subtitle: `Lembrete · ${r.dueTime || "09:00"}${r.notes ? ` · ${r.notes}` : ""}`,
-        spoken: `${name ? `${name}, l` : "L"}embrete: ${r.text}.${r.notes ? ` ${r.notes}.` : ""}`,
+        spoken: r.voiceText
+          ? (name ? `${name}, ` : "") + r.voiceText
+          : `${name ? `${name}, l` : "L"}embrete: ${r.text}.${r.notes ? ` ${r.notes}.` : ""}`,
+        gender: r.voiceText ? r.voiceGender : undefined,
+        customVoice: Boolean(r.voiceText),
       });
     }
 
