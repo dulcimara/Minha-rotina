@@ -45,9 +45,13 @@ export default function Login() {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/nova-senha`,
         });
-        // Só mostra erro de limite de envios; nos outros casos a mensagem é sempre a mesma,
-        // para não revelar se o e-mail tem conta no app.
-        if (error && error.message.toLowerCase().includes("rate limit")) throw error;
+        // O Supabase responde igual para e-mail com ou sem conta; só dá erro quando o
+        // envio em si falhou (limite de envios, servidor de e-mail). Nesse caso avisamos,
+        // em vez de dizer que mandamos um e-mail que nunca vai chegar.
+        if (error) {
+          if (error.message.toLowerCase().includes("rate limit")) throw error;
+          throw new Error("EMAIL_SEND_FAILED");
+        }
         setInfo("Se este e-mail tiver conta, enviamos um link para criar uma nova senha. Veja também a caixa de spam.");
         setMode("entrar");
       } else if (mode === "entrar") {
@@ -78,7 +82,12 @@ export default function Login() {
         }
       }
     } catch (err) {
-      setError(translateError((err as Error).message));
+      const msg = (err as Error).message;
+      setError(
+        msg === "EMAIL_SEND_FAILED"
+          ? "Não conseguimos enviar o e-mail agora. Tente de novo mais tarde. Se continuar, fale com o suporte."
+          : translateError(msg),
+      );
     } finally {
       setLoading(false);
     }

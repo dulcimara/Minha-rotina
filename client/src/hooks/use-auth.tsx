@@ -21,7 +21,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Link de "Esqueci minha senha" que caiu na página inicial (ex.: endereço de volta
+      // não liberado no Supabase): leva para a tela de nova senha mesmo assim.
+      if (event === "PASSWORD_RECOVERY" && !window.location.pathname.startsWith("/nova-senha")) {
+        window.location.replace("/nova-senha");
+        return;
+      }
       setSession(newSession);
     });
 
