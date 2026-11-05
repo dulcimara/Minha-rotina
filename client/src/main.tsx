@@ -15,8 +15,10 @@ const unlock = () => {
   unlockAudio();
   unlockSpeech();
 };
-window.addEventListener("pointerdown", unlock, { passive: true });
-window.addEventListener("keydown", unlock);
+// O iPhone só aceita liberar som e voz quando o dedo SOLTA a tela (touchend/click).
+for (const ev of ["pointerdown", "touchend", "click", "keydown"]) {
+  window.addEventListener(ev, unlock, { passive: true, capture: true });
+}
 
 // Service worker: permite instalar o app e mostrar notificações.
 if ("serviceWorker" in navigator && import.meta.env.PROD) {

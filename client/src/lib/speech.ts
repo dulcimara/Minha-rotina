@@ -168,17 +168,21 @@ function pickVoice(gender?: "male" | "female"): SpeechSynthesisVoice | undefined
 let speechUnlocked = false;
 
 /**
- * O iPhone e alguns Android só deixam o app falar sozinho (na hora de um aviso)
- * se a voz já tiver sido usada depois de um toque na tela. Por isso, no primeiro
- * toque, falamos um texto vazio e mudo (main.tsx).
+ * O iPhone só deixa o app falar sozinho (na hora de um aviso) se a voz já tiver
+ * sido usada num toque na tela. No toque, falamos um texto vazio e mudo.
+ * Só marcamos como liberada quando o aparelho realmente começa a falar; se o
+ * toque não valeu (ex.: o iPhone não aceita o "encostar"), tenta no próximo.
  */
 export function unlockSpeech() {
   if (speechUnlocked || typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  speechUnlocked = true;
+  if (window.speechSynthesis.speaking) return; // já está falando: não atrapalha
   try {
     const u = new SpeechSynthesisUtterance(" ");
     u.volume = 0;
     u.lang = "pt-BR";
+    u.onstart = u.onend = () => {
+      speechUnlocked = true;
+    };
     window.speechSynthesis.speak(u);
   } catch {
     // sem voz disponível
