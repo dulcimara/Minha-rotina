@@ -7,7 +7,7 @@ import { ShieldCheck } from "lucide-react";
  * público, deve ser revisado por um advogado.
  */
 export default function Privacy() {
-  const updated = "2 de novembro de 2026";
+  const updated = "4 de novembro de 2026";
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-2xl mx-auto px-4 py-8 space-y-6">
@@ -76,6 +76,15 @@ export default function Privacy() {
               anônimas de uso: telas abertas e recursos usados, tipo de aparelho e cidade aproximada. Nunca enviamos nome, e-mail,
               o que você cadastra ou dados de saúde (ciclo, remédios, filhos). O Google atua como operador; dá para desligar a
               qualquer momento em Configurações → Estatísticas de uso.
+            </p>
+          </section>
+
+          <section>
+            <h2>Entrar com Google</h2>
+            <p>
+              Se você escolher "Entrar com Google", o Google nos informa apenas seu nome, e-mail e foto de perfil, e confirma
+              que o e-mail é seu. Não usamos a foto e não temos acesso à sua senha do Google, aos seus e-mails nem a outros
+              dados da sua conta Google. Na primeira entrada pedimos a data de nascimento e o aceite desta política.
             </p>
           </section>
 

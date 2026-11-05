@@ -1,5 +1,5 @@
 import { useAppIcon } from "@/lib/palettes";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { validBirthDate } from "@/lib/calories";
 import { DateInputBR } from "@/components/DateInputBR";
 import { BellRing, Mic, ShoppingCart } from "lucide-react";
+import { signInWithGoogle, useGoogleLoginAvailable } from "@/lib/google-login";
 
 type Mode = "entrar" | "cadastrar" | "recuperar";
 
@@ -33,6 +34,28 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const googleAvailable = useGoogleLoginAvailable();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Voltou do Google com erro (ex.: a pessoa cancelou): avisa uma vez e limpa o endereço.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search + window.location.hash.replace(/^#/, "&"));
+    if (params.get("error")) {
+      setError("Não foi possível entrar com o Google. Tente de novo.");
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
+  const handleGoogle = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle(); // sai do app e volta logada
+    } catch {
+      setGoogleLoading(false);
+      setError("Não foi possível entrar com o Google. Tente de novo.");
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -121,6 +144,26 @@ export default function Login() {
               <ShoppingCart className="h-4 w-4 shrink-0 text-primary" /> Lista de compras dividida com a família
             </li>
           </ul>
+        )}
+
+        {mode !== "recuperar" && googleAvailable && (
+          <div className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-11 text-base"
+              onClick={handleGoogle}
+              disabled={googleLoading}
+              data-testid="button-google-login"
+            >
+              {googleLoading ? "Abrindo o Google..." : "Entrar com Google"}
+            </Button>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              ou com e-mail e senha
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

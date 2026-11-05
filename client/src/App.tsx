@@ -8,6 +8,8 @@ import Login from "@/pages/Login";
 import { AppLock } from "@/components/AppLock";
 import Privacy from "@/pages/Privacy";
 import NewPassword from "@/pages/NewPassword";
+import CompleteSignup from "@/pages/CompleteSignup";
+import { needsSignupCompletion } from "@/lib/google-login";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -69,12 +71,13 @@ function Gate() {
     );
   }
 
-  return session ? (
+  if (!session) return <Login />;
+  // Primeira entrada pelo Google: falta aceitar a política e informar o nascimento.
+  if (needsSignupCompletion(user?.user_metadata)) return <CompleteSignup />;
+  return (
     <AppLock>
       <Router />
     </AppLock>
-  ) : (
-    <Login />
   );
 }
 
