@@ -301,10 +301,10 @@ export function dueFor(u: UserData, now: Date): Due[] {
     const at = zoned(today.y, today.m, today.d, h, mi, tz);
     if (!inWindow(at, now)) continue;
     due.push({
-      key: `rem:${r.id}:${r.due_date}`,
+      key: `rem:${r.id}:${r.due_date}:${r.due_time ?? "09:00"}`,
       at,
       title: `${r.emoji ?? "🔔"} ${r.text}`,
-      body: `${name ? `${name}, l` : "L"}embrete: ${r.text}.${r.notes ? ` ${r.notes}` : ""}`,
+      body: `${name ? `${name}, você` : "Você"} tem um lembrete: ${r.text}.${r.notes ? ` ${r.notes}` : ""}`,
     });
   }
 
