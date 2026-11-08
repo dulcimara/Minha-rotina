@@ -12,15 +12,25 @@ interface Palette {
   accent: string;
 }
 
+// Cores da marca (mesmas do AppIcon): rosa --mic-1, roxo --mic-2 e coral de destaque.
+// Assim as ilustrações acompanham a paleta escolhida e o tema claro/escuro.
+const BRAND: Palette = {
+  bg: "hsl(var(--mic-1) / 0.2)",
+  main: "hsl(var(--mic-2))",
+  soft: "hsl(var(--mic-1))",
+  accent: "#ffffff",
+};
+const CORAL = "#FF7F52";
+
 const PALETTES: Record<string, Palette> = {
-  saude: { bg: "#ffe4ea", main: "#e8486f", soft: "#ffb3c4", accent: "#ffffff" },
-  familia: { bg: "#fff1d6", main: "#e89a1c", soft: "#ffd27a", accent: "#7a4b12" },
-  casa: { bg: "#ddf5e6", main: "#2f9e64", soft: "#9ddcb6", accent: "#ffffff" },
-  trabalho: { bg: "#e1ecff", main: "#3b6fd8", soft: "#a8c4ff", accent: "#ffffff" },
-  autocuidado: { bg: "#fde4f3", main: "#d6519f", soft: "#f7b1d9", accent: "#ffe08a" },
-  fitness: { bg: "#ffe8dc", main: "#ea6a2c", soft: "#ffbf9a", accent: "#ffffff" },
-  lazer: { bg: "#efe4ff", main: "#8b5cd6", soft: "#cfb6ff", accent: "#ffd166" },
-  outros: { bg: "#ece8f1", main: "#7b6d8d", soft: "#cbc2d6", accent: "#ffffff" },
+  saude: { ...BRAND, accent: "#ffffff" },
+  familia: { ...BRAND, accent: CORAL },
+  casa: { ...BRAND },
+  trabalho: { ...BRAND },
+  autocuidado: { ...BRAND, accent: CORAL },
+  fitness: { ...BRAND, main: CORAL, soft: "hsl(var(--mic-1))" },
+  lazer: { ...BRAND, accent: CORAL },
+  outros: { ...BRAND, main: "hsl(var(--mic-2) / 0.7)" },
 };
 
 function Drawing({ category, p }: { category: string; p: Palette }) {

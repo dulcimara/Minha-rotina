@@ -160,7 +160,11 @@ function BirthdayRow({ b }: { b: Birthday }) {
 export function BirthdaysDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { data: birthdays = [] } = useBirthdays();
   const [adding, setAdding] = useState(false);
-  const sorted = [...birthdays].sort((a, b) => nextBirthdayDate(a).getTime() - nextBirthdayDate(b).getTime());
+  // Agrupado por mês (janeiro a dezembro), e dentro do mês por dia.
+  const byMonth = MONTH_NAMES.map((name, i) => ({
+    name,
+    items: birthdays.filter((b) => b.month === i + 1).sort((a, b) => a.day - b.day),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <Dialog
@@ -179,14 +183,24 @@ export function BirthdaysDialog({ open, onOpenChange }: { open: boolean; onOpenC
             <Plus className="h-4 w-4" /> Novo aniversário
           </Button>
         )}
-        {sorted.length === 0 && !adding ? (
+        {birthdays.length === 0 && !adding ? (
           <p className="text-sm text-muted-foreground italic">
             Nenhum aniversário salvo. Dica: diga “Aniversário da Ana dia 12 de março”.
           </p>
         ) : (
-          <div className="divide-y">
-            {sorted.map((b) => (
-              <BirthdayRow key={b.id} b={b} />
+          <div className="space-y-4">
+            {byMonth.map((g) => (
+              <section key={g.name} className="space-y-1" data-testid={`birthdays-${g.name}`}>
+                <h3 className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary">
+                  <span>{g.name}</span>
+                  <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] text-accent">{g.items.length}</span>
+                </h3>
+                <div className="divide-y">
+                  {g.items.map((b) => (
+                    <BirthdayRow key={b.id} b={b} />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}

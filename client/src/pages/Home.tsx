@@ -14,8 +14,9 @@ import { MOVIES } from "@/lib/list-ids";
 const AgendaTab = lazy(() => import("@/components/tabs/AgendaTab").then((m) => ({ default: m.AgendaTab })));
 const ListsTab = lazy(() => import("@/components/tabs/ListsTab").then((m) => ({ default: m.ListsTab })));
 const CycleTab = lazy(() => import("@/components/tabs/CycleTab").then((m) => ({ default: m.CycleTab })));
-import { Baby, CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, Plus, Settings } from "lucide-react";
+import { Baby, CalendarDays, Droplet, Home as HomeIcon, ListChecks, Mic, PawPrint, Plus, Settings } from "lucide-react";
 import { ChildrenDialog } from "@/components/ChildrenDialog";
+import { PetsDialog } from "@/components/PetsDialog";
 import { Onboarding } from "@/components/Onboarding";
 import { VerseOfTheDay } from "@/components/VerseOfTheDay";
 import { readSettings } from "@/lib/settings";
@@ -63,6 +64,7 @@ export default function Home() {
   const settings = readSettings(user);
   const onboarded = Boolean((user?.user_metadata as { onboarded_at?: string } | undefined)?.onboarded_at);
   const [childrenOpen, setChildrenOpen] = useState(false);
+  const [petsOpen, setPetsOpen] = useState(false);
   /** lista aberta na aba Listas (vazio = lista de compras) */
   const [listId, setListId] = useState<string | undefined>();
   const [voice, setVoice] = useState<{ open: boolean; mode: "voice" | "type"; context?: "shopping" }>({
@@ -174,6 +176,10 @@ export default function Home() {
               <Baby className="h-5 w-5" />
               <span className="sr-only">Meus filhos</span>
             </Button>
+            <Button variant="ghost" size="icon" onClick={() => setPetsOpen(true)} data-testid="button-pets" title="Meus pets">
+              <PawPrint className="h-5 w-5" />
+              <span className="sr-only">Meus pets</span>
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} data-testid="button-settings" title="Configurações">
               <Settings className="h-5 w-5" />
               <span className="sr-only">Configurações</span>
@@ -255,6 +261,7 @@ export default function Home() {
       <Onboarding />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ChildrenDialog open={childrenOpen} onOpenChange={setChildrenOpen} />
+      <PetsDialog open={petsOpen} onOpenChange={setPetsOpen} />
 
       <MonthlyShoppingPrompt paused={!!alerts.current || !onboarded} />
 

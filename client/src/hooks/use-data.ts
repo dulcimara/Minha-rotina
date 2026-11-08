@@ -10,6 +10,7 @@ import {
   fetchLists,
   fetchTrips,
   fetchChildren,
+  fetchPets,
   fetchMedications,
   fetchDoses,
   fetchCycleDays,
@@ -30,8 +31,10 @@ export const keys = {
   birthdays: (u?: string) => ["birthdays", u],
   cycles: (u?: string) => ["cycles", u],
   children: (u?: string) => ["children", u],
+  pets: (u?: string) => ["pets", u],
   medications: (u?: string) => ["medications", u],
   doses: (u?: string) => ["doses", u],
+  dosesReport: (u?: string, from?: string) => ["dosesReport", u, from],
   cycleDays: (u?: string) => ["cycleDays", u],
   watchlist: (u?: string) => ["watchlist", u],
   workouts: (u?: string) => ["workouts", u],
@@ -107,6 +110,21 @@ export function useDoses() {
     queryFn: () => fetchDoses(format(subDays(new Date(), 2), "yyyy-MM-dd")),
     enabled: !!userId,
   });
+}
+
+/** Doses tomadas num intervalo (usado no relatório de remédios). */
+export function useDosesBetween(from: string, until: string) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: keys.dosesReport(userId, from),
+    queryFn: () => fetchDoses(from, until),
+    enabled: !!userId,
+  });
+}
+
+export function usePets() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.pets(userId), queryFn: fetchPets, enabled: !!userId });
 }
 
 /** Diário do ciclo dos últimos 12 meses. */

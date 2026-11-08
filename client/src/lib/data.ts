@@ -543,9 +543,12 @@ export async function deleteCycle(id: string) {
 // Filhos
 // =============================================================
 
+export type Sex = "feminino" | "masculino";
+
 export interface Child {
   id: string;
   name: string;
+  sex?: Sex;
   birthDate?: string; // AAAA-MM-DD
   school?: string;
   schoolGrade?: string;
@@ -560,6 +563,7 @@ export interface Child {
 
 const CHILD_FIELDS: [keyof Child, string][] = [
   ["name", "name"],
+  ["sex", "sex"],
   ["birthDate", "birth_date"],
   ["school", "school"],
   ["schoolGrade", "school_grade"],
@@ -603,6 +607,69 @@ export async function saveChild(input: Omit<Child, "id">, id?: string) {
 
 export async function deleteChild(id: string) {
   const { error } = await supabase.from("children").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// =============================================================
+// Pets
+// =============================================================
+
+export interface Pet {
+  id: string;
+  name: string;
+  species?: string; // Cachorro, Gato, Outro...
+  sex?: Sex;
+  breed?: string;
+  birthDate?: string; // AAAA-MM-DD
+  vet?: string;
+  vetPhone?: string;
+  allergies?: string;
+  notes?: string;
+}
+
+const PET_FIELDS: [keyof Pet, string][] = [
+  ["name", "name"],
+  ["species", "species"],
+  ["sex", "sex"],
+  ["breed", "breed"],
+  ["birthDate", "birth_date"],
+  ["vet", "vet"],
+  ["vetPhone", "vet_phone"],
+  ["allergies", "allergies"],
+  ["notes", "notes"],
+];
+
+export async function fetchPets(): Promise<Pet[]> {
+  const { data, error } = await supabase.from("pets").select("*").order("name", { ascending: true });
+  if (error) {
+    if (error.code === "42P01") return []; // migração 13 ainda não rodada
+    throw error;
+  }
+  return (data ?? []).map((r) => {
+    const p: Record<string, unknown> = { id: r.id };
+    for (const [k, col] of PET_FIELDS) if (r[col] != null && r[col] !== "") p[k] = r[col];
+    return p as unknown as Pet;
+  });
+}
+
+function petRow(input: Omit<Pet, "id">) {
+  const row: Record<string, unknown> = {};
+  for (const [k, col] of PET_FIELDS) {
+    const v = (input as Partial<Pet>)[k];
+    row[col] = typeof v === "string" ? v.trim() || null : v ?? null;
+  }
+  return row;
+}
+
+export async function savePet(input: Omit<Pet, "id">, id?: string) {
+  const { error } = id
+    ? await supabase.from("pets").update(petRow(input)).eq("id", id)
+    : await supabase.from("pets").insert(petRow(input));
+  if (error) throw error;
+}
+
+export async function deletePet(id: string) {
+  const { error } = await supabase.from("pets").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -669,11 +736,10 @@ export async function deleteMedication(id: string) {
   if (error) throw error;
 }
 
-export async function fetchDoses(sinceDay: string): Promise<DoseTaken[]> {
-  const { data, error } = await supabase
-    .from("medication_doses")
-    .select("medication_id, day, time")
-    .gte("day", sinceDay);
+export async function fetchDoses(sinceDay: string, untilDay?: string): Promise<DoseTaken[]> {
+  let query = supabase.from("medication_doses").select("medication_id, day, time").gte("day", sinceDay);
+  if (untilDay) query = query.lte("day", untilDay);
+  const { data, error } = await query;
   if (error) {
     if (error.code === "42P01") return [];
     throw error;
@@ -745,6 +811,7 @@ const ALL_TABLES = [
   "menstrual_cycles",
   "cycle_days",
   "children",
+  "pets",
   "medications",
   "medication_doses",
   "push_subscriptions",

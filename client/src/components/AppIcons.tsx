@@ -6,7 +6,20 @@ import { cn } from "@/lib/utils";
  * As cores vêm da paleta escolhida (--mic-1 e --mic-2), então mudam junto com o tema.
  * O microfone fica de fora: ele é só o botão de falar.
  */
-export type AppIconName = "agenda" | "listas" | "ciclo" | "remedios" | "filhos" | "aniversarios" | "filmes" | "atividade" | "lembretes" | "entendi";
+export type AppIconName =
+  | "agenda"
+  | "listas"
+  | "ciclo"
+  | "remedios"
+  | "filhos"
+  | "menino"
+  | "menina"
+  | "pets"
+  | "aniversarios"
+  | "filmes"
+  | "atividade"
+  | "lembretes"
+  | "entendi";
 
 const HEART = "M0 22 C-30 -4 -40 -28 -22 -40 C-10 -48 0 -40 0 -30 C0 -40 10 -48 22 -40 C40 -28 30 -4 0 22 Z";
 const SPARK = "M404 78 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10z";
@@ -80,6 +93,51 @@ function glyph(name: AppIconName, ink: string, sh: string): ReactNode {
           <circle cx="176" cy="314" r="20" fill={fillInk} opacity="0.25" />
           <circle cx="336" cy="314" r="20" fill={fillInk} opacity="0.25" />
           <path d="M222 322 q34 32 68 0" fill="none" stroke={fillInk} strokeWidth="16" strokeLinecap="round" />
+        </>
+      );
+    case "menino":
+      // cabelo curto, sem laço
+      return (
+        <>
+          <g filter={shadow}>
+            <path d="M136 412 c0-74 52-118 120-118 s120 44 120 118 z" fill="#fff" />
+            <circle cx="256" cy="236" r="112" fill="#fff" />
+          </g>
+          <path d="M146 228 c-6-78 46-124 110-124 c62 0 116 40 110 124 c-24-34-64-50-110-50 c-44 0-82 14-110 50z" fill={fillInk} />
+          <circle cx="216" cy="258" r="13" fill={fillInk} />
+          <circle cx="296" cy="258" r="13" fill={fillInk} />
+          <path d="M224 298 q32 28 64 0" fill="none" stroke={fillInk} strokeWidth="15" strokeLinecap="round" />
+        </>
+      );
+    case "menina":
+      // cabelo comprido com franja e laço
+      return (
+        <>
+          <path d="M132 262 c0-100 54-150 124-150 s124 50 124 150 v104 c0 20-14 32-32 32 h-184 c-18 0-32-12-32-32z" fill={fillInk} />
+          <g filter={shadow}>
+            <path d="M170 420 c0-62 38-100 86-100 s86 38 86 100 c-30 16-142 16-172 0z" fill="#fff" />
+            <circle cx="256" cy="238" r="104" fill="#fff" />
+          </g>
+          <path d="M152 232 c-6-70 40-108 104-108 c60 0 110 36 104 108 c-34-38-92-44-104-6 c-16-38-70-34-104 6z" fill={fillInk} />
+          <circle cx="216" cy="262" r="12" fill={fillInk} />
+          <circle cx="296" cy="262" r="12" fill={fillInk} />
+          <path d="M226 300 q30 24 60 0" fill="none" stroke={fillInk} strokeWidth="14" strokeLinecap="round" />
+          <path d="M344 118 l-34-22 v44z M344 118 l34-22 v44z" fill="#fff" />
+          <circle cx="344" cy="118" r="8" fill="#fff" stroke={fillInk} strokeWidth="6" />
+        </>
+      );
+    case "pets":
+      // patinha
+      return (
+        <>
+          <g filter={shadow}>
+            <path d="M256 268 c-72 0-118 58-118 96 c0 36 36 46 62 36 c20-8 36-14 56-14 s36 6 56 14 c26 10 62 0 62-36 c0-38-46-96-118-96z" fill="#fff" />
+            <ellipse cx="164" cy="210" rx="30" ry="38" fill="#fff" transform="rotate(-18 164 210)" />
+            <ellipse cx="236" cy="168" rx="32" ry="42" fill="#fff" />
+            <ellipse cx="312" cy="168" rx="32" ry="42" fill="#fff" />
+            <ellipse cx="384" cy="210" rx="30" ry="38" fill="#fff" transform="rotate(18 384 210)" />
+          </g>
+          <path d="M256 290 c-36 0-58 28-58 44 c0 14 14 18 26 14 c12-4 20-6 32-6 s20 2 32 6 c12 4 26 0 26-14 c0-16-22-44-58-44z" fill={fillInk} opacity="0.35" />
         </>
       );
     case "aniversarios":

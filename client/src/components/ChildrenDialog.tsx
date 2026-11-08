@@ -14,34 +14,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarClock, ChevronDown, ChevronUp, Pencil, Phone, Pill, Plus, School, Shirt, Stethoscope, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useActivities, useChildren, useMedications, useUserId } from "@/hooks/use-data";
-import { deleteChild, medicationActiveOn, saveChild, type Child } from "@/lib/data";
+import { deleteChild, medicationActiveOn, saveChild, type Child, type Sex } from "@/lib/data";
 import { occurrencesBetween } from "@/lib/recurrence";
 import { addDays } from "date-fns";
 
-/** Ilustração de criança (mesmo estilo das categorias). */
-export function ChildArt({ name, className = "h-12 w-12" }: { name?: string; className?: string }) {
-  // Cor estável por nome, para cada filho ter a sua.
-  const colors = [
-    ["#fde4f3", "#d6519f"],
-    ["#e1ecff", "#3b6fd8"],
-    ["#fff1d6", "#e89a1c"],
-    ["#ddf5e6", "#2f9e64"],
-    ["#efe4ff", "#8b5cd6"],
-  ];
-  const i = Array.from(name ?? "").reduce((n, ch) => n + ch.charCodeAt(0), 0) % colors.length;
-  const [bg, main] = colors[i];
-  return (
-    <svg viewBox="0 0 48 48" className={`${className} shrink-0 rounded-2xl`} aria-hidden="true">
-      <rect width="48" height="48" rx="14" fill={bg} />
-      <circle cx="24" cy="19" r="8" fill={main} />
-      <circle cx="21" cy="18.5" r="1.2" fill="#fff" />
-      <circle cx="27" cy="18.5" r="1.2" fill="#fff" />
-      <path d="M21 22.5c1.6 1.4 4.4 1.4 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
-      <circle cx="17" cy="12.5" r="3" fill={main} />
-      <circle cx="31" cy="12.5" r="3" fill={main} />
-    </svg>
-  );
+/** Ícone do filho: menino ou menina, no mesmo estilo dos ícones do app. */
+export function ChildArt({ sex, className = "h-12 w-12" }: { sex?: Sex; className?: string }) {
+  const name = sex === "masculino" ? "menino" : sex === "feminino" ? "menina" : "filhos";
+  return <AppIcon name={name} className={className} />;
 }
 
 export function childAge(birthDate?: string): string | undefined {
@@ -97,6 +77,24 @@ function ChildForm({ child, onDone }: { child?: Child; onDone: () => void }) {
   return (
     <form onSubmit={submit} className="space-y-4 rounded-xl bg-muted/40 p-3">
       {field("name", "Nome *", { autoFocus: true, placeholder: "Ex.: João" })}
+      <div className="space-y-2">
+        <Label>Sexo</Label>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Sexo">
+          {(["feminino", "masculino"] as const).map((s) => (
+            <Button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={c.sex === s}
+              variant={c.sex === s ? "default" : "outline"}
+              onClick={() => setC({ ...c, sex: s })}
+              data-testid={`button-sex-${s}`}
+            >
+              {s === "feminino" ? "Feminino" : "Masculino"}
+            </Button>
+          ))}
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="child-birthDate">Data de nascimento</Label>
@@ -170,7 +168,7 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
   return (
     <div className="rounded-xl border bg-card p-3">
       <button type="button" className="w-full flex items-center gap-3 text-left" onClick={() => setOpen((v) => !v)}>
-        <ChildArt name={child.name} />
+        <ChildArt sex={child.sex} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold">{child.name}</p>
           <p className="text-xs text-muted-foreground">

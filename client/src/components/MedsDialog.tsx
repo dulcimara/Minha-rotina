@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { addDays, format } from "date-fns";
+import { useMemo, useState, type FormEvent } from "react";
+import { addDays, endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,27 +10,79 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NativeSelect } from "@/components/NativeSelect";
-import { Pill, Plus, Pencil, Trash2, X } from "lucide-react";
+import { ClipboardList, Pill, Plus, Pencil, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { keys, refresh, useChildren, useDoses, useMedications, useUserId } from "@/hooks/use-data";
+import { keys, refresh, useChildren, useDoses, useDosesBetween, useMedications, useUserId } from "@/hooks/use-data";
 import { queryClient } from "@/lib/queryClient";
 import { deleteMedication, saveMedication, setDoseTaken, type DoseTaken, type Medication } from "@/lib/data";
 import { dosesOn, timesEvery, treatmentLabel } from "@/lib/meds";
 import { cn } from "@/lib/utils";
 import { AppIcon } from "@/components/AppIcons";
 
-/** Ilustração do remédio (mesmo estilo das categorias). */
-export function PillArt({ className }: { className?: string }) {
+/** Relatório: quantas doses de cada remédio foram tomadas no mês passado. */
+function MonthlyReport({ meds, from, until, monthLabel }: { meds: Medication[]; from: Date; until: Date; monthLabel: string }) {
+  const fromKey = format(from, "yyyy-MM-dd");
+  const { data: taken = [], isLoading } = useDosesBetween(fromKey, format(until, "yyyy-MM-dd"));
+
+  const rows = useMemo(() => {
+    const byMed = new Map<string, { med: Medication; scheduled: number; taken: number }>();
+    for (let d = from; d <= until; d = addDays(d, 1)) {
+      for (const s of dosesOn(meds, taken, d)) {
+        const r = byMed.get(s.med.id) ?? { med: s.med, scheduled: 0, taken: 0 };
+        r.scheduled += 1;
+        if (s.taken) r.taken += 1;
+        byMed.set(s.med.id, r);
+      }
+    }
+    return Array.from(byMed.values()).sort((a, b) => a.med.name.localeCompare(b.med.name));
+  }, [meds, taken, from, until]);
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>;
+
+  const total = rows.reduce((n, r) => n + r.scheduled, 0);
+  const done = rows.reduce((n, r) => n + r.taken, 0);
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
   return (
-    <svg viewBox="0 0 48 48" className={cn("h-12 w-12 shrink-0 rounded-2xl", className)} aria-hidden="true">
-      <rect width="48" height="48" rx="14" fill="#e6f6f4" />
-      <g transform="rotate(-40 24 24)">
-        <rect x="11" y="17.5" width="26" height="13" rx="6.5" fill="#2a9d8f" />
-        <path d="M24 17.5h6.5a6.5 6.5 0 0 1 0 13H24z" fill="#9fe0d6" />
-        <rect x="14.5" y="20.5" width="6" height="2.4" rx="1.2" fill="#ffffff" opacity=".6" />
-      </g>
-      <circle cx="36.5" cy="34.5" r="3.5" fill="#f4a261" />
-    </svg>
+    <section className="space-y-3 rounded-xl border bg-card p-3" data-testid="med-report">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Relatório</p>
+        <h3 className="font-display font-semibold capitalize">{monthLabel}</h3>
+      </div>
+      {total === 0 ? (
+        <p className="text-sm text-muted-foreground italic">Nenhuma dose estava programada nesse mês.</p>
+      ) : (
+        <>
+          <div className="rounded-lg bg-hero p-3">
+            <p className="text-sm font-semibold">
+              {done} de {total} doses tomadas <span className="text-primary">({pct}%)</span>
+            </p>
+            <p className="text-xs text-muted-foreground">{total - done} doses ficaram sem registro</p>
+          </div>
+          <div className="space-y-3">
+            {rows.map((r) => {
+              const p = r.scheduled ? Math.round((r.taken / r.scheduled) * 100) : 0;
+              return (
+                <div key={r.med.id} className="space-y-1">
+                  <div className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="font-medium truncate">
+                      {r.med.name}
+                      {r.med.dose ? <span className="text-muted-foreground font-normal"> · {r.med.dose}</span> : null}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {r.taken}/{r.scheduled} · {p}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={p} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${p}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -226,6 +279,9 @@ export function MedsDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   const { data: taken = [] } = useDoses();
   const { data: children = [] } = useChildren();
   const [editing, setEditing] = useState<Medication | "new" | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const lastMonth = subMonths(new Date(), 1);
+  const lastMonthLabel = format(lastMonth, "MMMM 'de' yyyy", { locale: ptBR });
 
   const slots = dosesOn(meds, taken);
   const childName = (id?: string) => children.find((c) => c.id === id)?.name;
@@ -295,6 +351,28 @@ export function MedsDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             <Button onClick={() => setEditing("new")} className="w-full gap-1" data-testid="button-new-med">
               <Plus className="h-4 w-4" /> Novo remédio
             </Button>
+
+            {meds.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full gap-1"
+                  onClick={() => setShowReport((v) => !v)}
+                  aria-expanded={showReport}
+                  data-testid="button-med-report"
+                >
+                  <ClipboardList className="h-4 w-4" /> {showReport ? "Ocultar relatório" : `Relatório de ${lastMonthLabel}`}
+                </Button>
+                {showReport && (
+                  <MonthlyReport
+                    meds={meds}
+                    from={startOfMonth(lastMonth)}
+                    until={endOfMonth(lastMonth)}
+                    monthLabel={lastMonthLabel}
+                  />
+                )}
+              </>
+            )}
 
             {meds.length > 0 && (
               <section className="space-y-1">
