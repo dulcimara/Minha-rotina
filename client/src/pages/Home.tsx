@@ -50,6 +50,23 @@ export default function Home() {
   const appIcon = useAppIcon();
   const { toast } = useToast();
   const userId = useUserId();
+
+  // Veio do botão "Tomei" da notificação: marca a dose e limpa o endereço.
+  useEffect(() => {
+    if (!userId) return;
+    const params = new URLSearchParams(window.location.search);
+    const valor = params.get("tomar");
+    if (!valor) return;
+    const [medicationId, day, time] = valor.split("|");
+    params.delete("tomar");
+    const limpo = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+    window.history.replaceState(null, "", limpo);
+    if (medicationId && day && time) {
+      setDoseTaken(medicationId, day, time, true)
+        .then(() => refresh(userId, "doses"))
+        .catch(() => undefined);
+    }
+  }, [userId]);
   const { data: activities = [], isLoading } = useActivities();
   const alerts = useAlerts();
 

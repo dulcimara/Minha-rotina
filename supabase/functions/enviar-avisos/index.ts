@@ -142,6 +142,8 @@ interface Due {
   at: Date;
   title: string;
   body: string;
+  /** remédio: o botão "Tomei" do aviso marca esta dose */
+  dose?: { medicationId: string; day: string; time: string };
 }
 
 /** Calendário Nacional de Vacinação 2026 (mesma lista de client/src/lib/vacinas.ts). */
@@ -290,6 +292,7 @@ export function dueFor(u: UserData, now: Date): Due[] {
         at,
         title: `💊 ${med.name}${med.dose ? ` · ${med.dose}` : ""}`,
         body: `${name ? `${name}, h` : "H"}ora do remédio${forWho ? ` do(a) ${forWho}` : ""}: ${med.name}${med.dose ? `, ${med.dose}` : ""}.`,
+        dose: { medicationId: med.id, day: todayKey, time },
       });
     }
   }
@@ -436,7 +439,14 @@ async function run(now = new Date()) {
         body: item.body,
         tag: item.key,
         silent: meta.alert_mode === "silent",
-        url: item.key.startsWith("morning:") ? "/?resumo=1" : "/",
+        url: item.dose
+          ? `/?tomar=${encodeURIComponent(`${item.dose.medicationId}|${item.dose.day}|${item.dose.time}`)}`
+          : item.key.startsWith("morning:") ? "/?resumo=1" : "/",
+        // Botões da notificação (Android/Chrome; no iPhone não aparecem, e o toque abre o app).
+        // Remédio: "Tomei". Lembrete comum: "OK".
+        actions: item.dose
+          ? [{ action: "tomei", title: "Tomei ✓" }]
+          : [{ action: "ok", title: "OK" }],
         // ícone na cor que a pessoa escolheu
         icon: `/icons/${["rosa", "lavanda", "pessego", "menta", "ceu", "girassol"].includes(meta.palette) ? meta.palette : "rosa"}/icon-192.png`,
       });
