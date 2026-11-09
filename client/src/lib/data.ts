@@ -293,11 +293,12 @@ export async function fetchShoppingItems(listId?: string, ownerId?: string): Pro
 export async function addShoppingItems(items: (string | NewItem)[], listId?: string, ownerId?: string) {
   const rows = items
     .map((i) => (typeof i === "string" ? { name: i } : i))
-    .map((i) => ({ name: i.name.trim(), quantity: onlyNumber(i.quantity) || undefined }))
+    // Todo item entra com quantidade 1, a menos que outra seja informada.
+    .map((i) => ({ name: i.name.trim(), quantity: onlyNumber(i.quantity) || "1" }))
     .filter((i) => i.name)
     .map((i) => ({
       name: i.name,
-      ...(i.quantity ? { quantity: i.quantity } : {}),
+      quantity: i.quantity,
       ...(listId ? { list_id: listId } : {}),
       ...(ownerId ? { user_id: ownerId } : {}), // lista compartilhada: o item fica na conta da dona
     }));

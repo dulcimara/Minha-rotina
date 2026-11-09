@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KindHeader } from "@/components/KindHeader";
-import { Check, Plus, Search } from "lucide-react";
+import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import { CATALOG, normalize } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +19,14 @@ interface CatalogDialogProps {
 export function CatalogDialog({ open, onOpenChange, inList, onAdd }: CatalogDialogProps) {
   const [picked, setPicked] = useState<string[]>([]);
   const [query, setQuery] = useState("");
+  // Seções começam fechadas; abrem ao toque. Ao buscar, abrem todas as que têm resultado.
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const already = new Set(inList.map(normalize));
   const q = normalize(query);
+
+  const toggleSection = (section: string) =>
+    setOpenSections((o) => (o.includes(section) ? o.filter((x) => x !== section) : [...o, section]));
+  const isOpen = (section: string) => !!q || openSections.includes(section);
 
   const toggle = (name: string) =>
     setPicked((p) => (p.includes(name) ? p.filter((x) => x !== name) : [...p, name]));
@@ -37,6 +43,7 @@ export function CatalogDialog({ open, onOpenChange, inList, onAdd }: CatalogDial
         if (!o) {
           setPicked([]);
           setQuery("");
+          setOpenSections([]);
         }
         onOpenChange(o);
       }}
@@ -52,10 +59,25 @@ export function CatalogDialog({ open, onOpenChange, inList, onAdd }: CatalogDial
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 -mr-1">
-          {sections.map((s) => (
-            <section key={s.section}>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-primary mb-2">{s.section}</h4>
-              <div className="flex flex-wrap gap-1.5">
+          {sections.map((s) => {
+            const open = isOpen(s.section);
+            return (
+            <section key={s.section} className="rounded-lg border">
+              <button
+                type="button"
+                onClick={() => toggleSection(s.section)}
+                aria-expanded={open}
+                data-testid={`section-${s.section}`}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+              >
+                <span className="text-sm font-semibold text-primary">{s.section}</span>
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {s.items.length} itens
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+                </span>
+              </button>
+              {open && (
+              <div className="flex flex-wrap gap-1.5 px-3 pb-3">
                 {s.items.map((name) => {
                   const inside = already.has(normalize(name));
                   const on = picked.includes(name);
@@ -79,8 +101,10 @@ export function CatalogDialog({ open, onOpenChange, inList, onAdd }: CatalogDial
                   );
                 })}
               </div>
+              )}
             </section>
-          ))}
+            );
+          })}
           {sections.length === 0 && (
             <p className="text-sm text-muted-foreground">Nada encontrado. Você pode digitar o item direto na lista.</p>
           )}
