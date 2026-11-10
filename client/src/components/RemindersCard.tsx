@@ -69,9 +69,14 @@ export function RemindersCard() {
         </ul>
       )}
       {pending.length > 3 && (
-        <button type="button" onClick={() => open(false)} className="mt-1 flex w-full items-center justify-center gap-1 text-xs font-medium text-primary">
-          Ver todos ({pending.length}) <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+        <Button
+          variant="outline"
+          className="mt-2 w-full gap-1.5 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+          onClick={() => open(false)}
+          data-testid="button-reminders-see-all"
+        >
+          Ver todos os lembretes ({pending.length}) <ChevronRight className="h-4 w-4" />
+        </Button>
       )}
 
       <RemindersDialog key={dialog.key} open={dialog.open} startNew={dialog.startNew} onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} />
