@@ -459,7 +459,7 @@ const ACTIVITY_COMMAND_RE =
   /^(?:(?:por\s+favor|ok|oi|ei|eu)\s+)*(?:incluir|inclui|inclua|adicionar|adiciona|adicione|marcar|marca|marque|agendar|agenda|agende|criar|cria|crie|colocar|coloca|coloque|registrar|registra|registre|anotar|anota|anote|cadastrar|cadastra|cadastre|salvar|salva|salve|novo|nova|tenho|terei|vou\s+ter)\b\s*/;
 
 const ACTIVITY_HINT_RE =
-  /\b(compromisso|atividade|consulta|reuni[ãa]o|alarme|lembrete|lembrar|lembra|lembre|avis[ae]|avisar|agendar|marcar|incluir|adicionar|tenho)\b/;
+  /\b(compromisso|atividade|consulta|reuni[ãa]o|alarme|lembrete|lembrar|lembra|lembre|avis[ae]|avisar|agendar|marcar|incluir|inclu\w*|adicionar|cadastr\w*|anot\w*|registr\w*|tenho|endere[çc]o|local|lugar|data|dia|hora|hor[áa]rio)\b/;
 
 function parseActivity(original: string, now: Date, raw = original): VoiceCommand {
   let text = original;
@@ -878,7 +878,11 @@ export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceC
   if (SHOPPING_RE.test(text)) return parseShopping(text);
 
   // "pagar o cartão todo mês dia 10", "agendar ginecologista": vira lembrete
-  if (LONG_REPEAT.slice(2).some((r) => r.re.test(text)) || (matchPreset(text) && !findTime(text))) return parseReminder(text, now, raw);
+  // Com verbo de cadastro e data ("incluir dentista amanhã"), é compromisso, e não lembrete pronto.
+  const explicitActivity = ACTIVITY_COMMAND_RE.test(text) && Boolean(findDate(text, now, false));
+  if (LONG_REPEAT.slice(2).some((r) => r.re.test(text)) || (matchPreset(text) && !findTime(text) && !explicitActivity)) {
+    return parseReminder(text, now, raw);
+  }
 
   const hasDateOrTime = Boolean(findDate(text, now, false) || findTime(text));
   if (ACTIVITY_HINT_RE.test(text) || ACTIVITY_COMMAND_RE.test(text) || hasDateOrTime) {
@@ -886,6 +890,29 @@ export function parseVoiceCommand(input: string, now: Date = new Date()): VoiceC
   }
 
   return { kind: "unknown", text: capitalize(raw) };
+}
+
+/** Tipos que a pessoa pode escolher quando o app não entende a frase. */
+export type IntentChoice = "compromisso" | "lembrete" | "aniversario" | "lista" | "remedio" | "filme";
+
+/** Interpreta a frase como o tipo escolhido pela pessoa (sem adivinhar). */
+export function parseVoiceAs(choice: IntentChoice, input: string, now: Date = new Date()): VoiceCommand {
+  const raw = input.trim();
+  const text = stripPoliteness(normalizeNumbers(raw.toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ")));
+  switch (choice) {
+    case "lembrete":
+      return parseReminder(text, now, raw);
+    case "aniversario":
+      return parseBirthday(text, now, raw);
+    case "lista":
+      return parseShopping(text);
+    case "remedio":
+      return parseMedication(text, now, raw);
+    case "filme":
+      return parseMovie(text, raw);
+    default:
+      return parseActivity(text, now, raw);
+  }
 }
 
 /** Frases de exemplo mostradas na tela, para a pessoa saber o que dizer. */

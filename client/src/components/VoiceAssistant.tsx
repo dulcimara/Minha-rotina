@@ -24,7 +24,24 @@ import { repeatLabel } from "@/lib/recurrence";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useChildren, useCycles, useLists, useUserId } from "@/hooks/use-data";
 import { listen, speak, speechRecognitionSupported } from "@/lib/speech";
-import { parseShoppingItems, parseVoiceCommand, splitQuantity, VOICE_EXAMPLES, type VoiceCommand } from "@/lib/voice-parser";
+import { parseVoiceAs, parseVoiceCommand, splitQuantity, VOICE_EXAMPLES, type IntentChoice, type VoiceCommand } from "@/lib/voice-parser";
+import { displayName } from "@/hooks/use-auth";
+
+/** Opções da pergunta de esclarecimento, na ordem em que aparecem. */
+const CLARIFY_OPTIONS: { value: IntentChoice; label: string }[] = [
+  { value: "compromisso", label: "Compromisso" },
+  { value: "lembrete", label: "Lembrete" },
+  { value: "aniversario", label: "Aniversário" },
+  { value: "lista", label: "Lista de compras" },
+  { value: "remedio", label: "Remédio" },
+  { value: "filme", label: "Filme ou série" },
+];
+
+/** "Ana, pronto! ..." — chama a pessoa pelo nome, sem repetir o início da frase. */
+const withName = (name: string | undefined, spoken: string) => {
+  if (!name || !spoken) return spoken;
+  return `${name}, ${spoken.charAt(0).toLowerCase()}${spoken.slice(1)}`;
+};
 import { CATEGORIES, MONTH_NAMES, REMINDER_OPTIONS, reminderLabel } from "@/lib/options";
 import {
   addShoppingItems,
@@ -44,7 +61,7 @@ import { timesEvery } from "@/lib/meds";
 import { Stars } from "@/components/WatchlistView";
 import { addDays as addDaysFn } from "date-fns";
 
-type Stage = "listening" | "typing" | "confirm";
+type Stage = "listening" | "typing" | "clarify" | "confirm";
 
 interface VoiceAssistantProps {
   open: boolean;
@@ -223,6 +240,7 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
+  const nome = displayName(user);
   const cycleConsented = Boolean((user?.user_metadata as { cycle_consent_at?: string } | undefined)?.cycle_consent_at);
   const [cycleConsent, setCycleConsent] = useState(false);
   const stopRef = useRef<() => void>(() => {});
@@ -230,13 +248,15 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const interpret = (text: string) => {
-    let cmd = parseVoiceCommand(text);
-    // Na aba Compras, frases sem data/hora viram itens da lista.
-    if (context === "shopping" && (cmd.kind === "unknown" || (cmd.kind === "activity" && !cmd.hasTime))) {
-      cmd = { kind: "shopping", items: parseShoppingItems(text) };
-    }
+    // A classificação não depende da tela em que a pessoa está.
+    const cmd = parseVoiceCommand(text);
     setHeard(text);
-    setUnderstood(cmd.kind !== "unknown");
+    // Na dúvida, pergunta em vez de adivinhar.
+    if (cmd.kind === "unknown") {
+      setStage("clarify");
+      return;
+    }
+    setUnderstood(true);
     const d = draftFrom(cmd, text);
     // "para o João": liga o remédio ao perfil do filho com esse nome
     if (d.kind === "medication" && d.forName) {
@@ -244,6 +264,13 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
       d.childId = children.find((c) => c.name.toLowerCase().split(" ")[0] === n)?.id ?? "";
     }
     setDraft(d);
+    setStage("confirm");
+  };
+
+  // A pessoa escolheu o tipo na pergunta de esclarecimento.
+  const choose = (choice: IntentChoice) => {
+    setUnderstood(true);
+    setDraft(draftFrom(parseVoiceAs(choice, heard), heard));
     setStage("confirm");
   };
 
@@ -393,7 +420,7 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
       }
       toast({ title: "Salvo!", description: spoken });
       track("usou_voz", { tipo: draft.kind }); // ciclo e remédios não são enviados (analytics.ts)
-      speak(spoken);
+      speak(withName(nome, spoken));
       close();
     } catch (err) {
       toast({ title: "Não foi possível salvar", description: (err as Error).message, variant: "destructive" });
@@ -433,6 +460,30 @@ export function VoiceAssistant({ open, mode, context, listId, onOpenChange }: Vo
                 <Keyboard className="h-4 w-4 mr-2" /> Digitar
               </Button>
               <Button onClick={() => stopRef.current()}>Pronto, terminei</Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {stage === "clarify" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>{nome ? `${nome}, não entendi bem` : "Não entendi bem"}</DialogTitle>
+              <DialogDescription>
+                Tudo bem! Você quer marcar um compromisso, criar um lembrete, cadastrar um aniversário ou colocar algo na lista?
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground" data-testid="text-clarify-heard">Ouvi: “{heard}”</p>
+            <div className="grid grid-cols-2 gap-2">
+              {CLARIFY_OPTIONS.map((o) => (
+                <Button key={o.value} variant="outline" onClick={() => choose(o.value)} data-testid={`button-clarify-${o.value}`}>
+                  {o.label}
+                </Button>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={startListening} data-testid="button-clarify-again">
+                Falar de novo
+              </Button>
             </DialogFooter>
           </>
         )}
