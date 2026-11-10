@@ -1,49 +1,34 @@
+import livro from "./proverbios.json";
+
 /**
- * Versículo do dia: um versículo de Provérbios sorteado uma vez por dia.
- * Texto: Almeida em domínio público, pela API gratuita bible-api.com (tradução "almeida").
- * Fica guardado no aparelho até o dia seguinte, para não mudar a cada abertura.
+ * Versículo do dia: sorteado de Provérbios (Almeida Revista e Corrigida, 1911, domínio público).
+ * O texto vem junto com o app (proverbios.json), então não há busca na internet
+ * e o versículo não some quando um serviço externo sai do ar.
  */
 export interface Verse {
-  day: string; // AAAA-MM-DD
   ref: string; // "Provérbios 3:5"
   text: string;
 }
 
-const KEY = "minha-rotina:versiculo";
-const URL = "https://bible-api.com/data/almeida/random/PRO";
-
-function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+interface Capitulo {
+  numero: number;
+  versiculos: string[];
 }
 
-export function cachedVerse(): Verse | null {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? "null") as Verse | null;
-    return v && v.day === today() ? v : null;
-  } catch {
-    return null;
-  }
-}
+const capitulos = livro.capitulos as Capitulo[];
 
-export async function verseOfTheDay(): Promise<Verse | null> {
-  const cached = cachedVerse();
-  if (cached) return cached;
-  try {
-    const res = await fetch(URL);
-    if (!res.ok) return null;
-    const json = (await res.json()) as { random_verse?: { book?: string; chapter?: number; verse?: number; text?: string } };
-    const r = json.random_verse;
-    const text = r?.text?.replace(/\s+/g, " ").trim();
-    if (!r || !text) return null;
-    const v: Verse = { day: today(), ref: `${r.book || "Provérbios"} ${r.chapter}:${r.verse}`, text };
-    try {
-      localStorage.setItem(KEY, JSON.stringify(v));
-    } catch {
-      /* sem armazenamento: busca de novo na próxima abertura */
-    }
-    return v;
-  } catch {
-    return null; // sem internet ou serviço fora do ar: o espaço simplesmente não aparece
-  }
+const todos: Verse[] = capitulos.flatMap((c) =>
+  c.versiculos.map((text, i) => ({ ref: `${livro.livro} ${c.numero}:${i + 1}`, text })),
+);
+
+// Passo coprimo com o total de versículos (915): cada dia cai num versículo diferente
+// e a ordem não segue o livro. Mudar o passo muda a sequência dos dias.
+const PASSO = 397;
+
+/** Mesmo versículo o dia todo; muda à meia-noite (horário local). */
+export function versiculoDoDia(hoje: Date = new Date()): Verse {
+  const dia = Math.floor(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) / 86_400_000);
+  const n = todos.length;
+  const indice = (((dia % n) + n) % n * PASSO) % n;
+  return todos[indice];
 }
