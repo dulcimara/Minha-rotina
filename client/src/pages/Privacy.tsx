@@ -99,8 +99,8 @@ export default function Privacy() {
           <section>
             <h2>Versículo do dia</h2>
             <p>
-              Se a opção estiver ligada, o app busca uma vez por dia um versículo de Provérbios no serviço gratuito bible-api.com.
-              Nenhum dado seu é enviado; o serviço vê apenas o pedido do versículo. Dá para desligar em Configurações.
+              Se a opção estiver ligada, o app mostra um versículo de Provérbios (tradução Almeida Revista e Corrigida, 1911, domínio público).
+              O texto já vem dentro do app: nenhum dado seu é enviado a outro serviço. Dá para desligar em Configurações.
             </p>
           </section>
 
