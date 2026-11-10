@@ -63,6 +63,8 @@ self.addEventListener("push", (event) => {
 // Ao tocar na notificação, abre (ou traz para frente) o app.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  // Botão "OK" só fecha o aviso.
+  if (event.action === "ok") return;
   const url = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
