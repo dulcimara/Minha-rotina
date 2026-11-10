@@ -59,7 +59,7 @@ export function AlertModal({ alert, onDismiss, onSnooze, onTaken, onSpeak }: Ale
             </Button>
           ) : (
             <Button onClick={onDismiss} data-testid="button-alert-dismiss">
-              Entendi
+              OK
             </Button>
           )}
         </div>
