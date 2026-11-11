@@ -544,10 +544,17 @@ export async function deleteCycle(id: string) {
 // Filhos
 // =============================================================
 
+export const SEXO_OPCOES = [
+  { value: "masculino", label: "Masculino" },
+  { value: "feminino", label: "Feminino" },
+] as const;
+export type Sexo = (typeof SEXO_OPCOES)[number]["value"];
+
 export interface Child {
   id: string;
   name: string;
   birthDate?: string; // AAAA-MM-DD
+  sex?: Sexo; // opcional: usado só para escolher o ícone
   school?: string;
   schoolGrade?: string;
   pediatrician?: string;
@@ -562,6 +569,7 @@ export interface Child {
 const CHILD_FIELDS: [keyof Child, string][] = [
   ["name", "name"],
   ["birthDate", "birth_date"],
+  ["sex", "sex"],
   ["school", "school"],
   ["schoolGrade", "school_grade"],
   ["pediatrician", "pediatrician"],

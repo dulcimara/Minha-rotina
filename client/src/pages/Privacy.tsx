@@ -36,7 +36,7 @@ export default function Privacy() {
             <ul>
               <li>Conta: nome, como quer ser chamada, data de nascimento, e-mail e senha (a senha é guardada de forma cifrada).</li>
               <li>Opcional, para estimar calorias: sexo e peso.</li>
-              <li>O que você cadastra: compromissos, lembretes, exercícios, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, perfis dos filhos.</li>
+              <li>O que você cadastra: compromissos, lembretes, exercícios, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, perfis dos filhos (nome, data de nascimento e, se você quiser, o sexo, usado só para escolher o ícone).</li>
               <li>
                 <strong>Dados sensíveis de saúde</strong>, só se você usar: ciclo menstrual, sintomas e humor, e remédios. Pedimos
                 o seu consentimento específico antes do primeiro registro do ciclo.
@@ -127,7 +127,7 @@ export default function Privacy() {
             <h2>Crianças</h2>
             <p>
               O app é para pessoas adultas. Os perfis dos filhos são criados e controlados pela mãe, pai ou responsável, que
-              decide quais informações registrar.
+              decide quais informações registrar. O sexo do filho(a) é opcional e é usado só para escolher o ícone. Ele entra no “Baixar meus dados” junto com os outros dados do perfil.
             </p>
           </section>
 
