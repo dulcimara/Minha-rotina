@@ -3,7 +3,7 @@ import { AppIcon } from "@/components/AppIcons";
 import { DateInputBR } from "@/components/DateInputBR";
 import { VaccineCard } from "@/components/VaccineCard";
 import { isMinor, vaccineStatus } from "@/lib/vacinas";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -14,16 +14,61 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarClock, ChevronDown, ChevronUp, Pencil, Phone, Pill, Plus, School, Shirt, Stethoscope, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { refresh, useActivities, useChildren, useMedications, useUserId } from "@/hooks/use-data";
-import { deleteChild, medicationActiveOn, saveChild, type Child } from "@/lib/data";
+import { deleteChild, medicationActiveOn, saveChild, SEXO_OPCOES, type Child, type Sexo } from "@/lib/data";
 import { occurrencesBetween } from "@/lib/recurrence";
 import { addDays } from "date-fns";
+import { NativeSelect } from "@/components/NativeSelect";
 
-/** Ilustração de criança (mesmo estilo das categorias). */
-export function ChildArt({ name, className = "h-12 w-12" }: { name?: string; className?: string }) {
-  // Cor estável por nome, para cada filho ter a sua.
+/** Rosto comum da ilustração de criança (mesmo estilo das categorias). */
+function ChildSvg({ className, bg, children }: { className: string; bg: string; children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 48 48" className={`${className} shrink-0 rounded-2xl`} aria-hidden="true">
+      <rect width="48" height="48" rx="14" fill={bg} />
+      {children}
+    </svg>
+  );
+}
+
+/** Menino: cabelo curto azul. */
+function BoyArt({ className }: { className: string }) {
+  const main = "#3b6fd8";
+  return (
+    <ChildSvg className={className} bg="#e1ecff">
+      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
+      <circle cx="16" cy="19" r="1.8" fill={main} />
+      <circle cx="32" cy="19" r="1.8" fill={main} />
+      <circle cx="24" cy="19" r="8" fill={main} />
+      <path d="M16 17.5c0-4.6 3.6-8 8-8s8 3.4 8 8c-2-1.6-4.6-2.4-8-2.4s-6 .8-8 2.4z" fill="#1f4fa8" />
+      <circle cx="21" cy="19.5" r="1.2" fill="#fff" />
+      <circle cx="27" cy="19.5" r="1.2" fill="#fff" />
+      <path d="M21 23c1.6 1.2 4.4 1.2 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+    </ChildSvg>
+  );
+}
+
+/** Menina: cabelo comprido, franja e laço rosa. */
+function GirlArt({ className }: { className: string }) {
+  const main = "#d6519f";
+  const dark = "#b5307a";
+  return (
+    <ChildSvg className={className} bg="#fde4f3">
+      <path d="M14 24c0-7 4.5-12.5 10-12.5S34 17 34 24v9c0 1.5-1 2-2 2H16c-1 0-2-.5-2-2z" fill={dark} opacity=".55" />
+      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
+      <circle cx="24" cy="19" r="8" fill={main} />
+      <path d="M16 18c0-4.6 3.6-8 8-8 3.5 0 6.5 2 7.5 5-3-.8-5.5-.5-7 .5-2 1.2-4 1.5-5.5 1.2z" fill={dark} />
+      <circle cx="21" cy="19.5" r="1.2" fill="#fff" />
+      <circle cx="27" cy="19.5" r="1.2" fill="#fff" />
+      <path d="M21 23c1.6 1.2 4.4 1.2 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+      <ellipse cx="29.6" cy="11.5" rx="2.6" ry="1.7" fill={dark} />
+      <ellipse cx="34.4" cy="11.5" rx="2.6" ry="1.7" fill={dark} />
+      <circle cx="32" cy="11.5" r="1.1" fill={dark} />
+    </ChildSvg>
+  );
+}
+
+/** Sem sexo informado: ilustração neutra, com cor estável por nome. */
+function NeutralArt({ name, className }: { name?: string; className: string }) {
   const colors = [
-    ["#fde4f3", "#d6519f"],
-    ["#e1ecff", "#3b6fd8"],
     ["#fff1d6", "#e89a1c"],
     ["#ddf5e6", "#2f9e64"],
     ["#efe4ff", "#8b5cd6"],
@@ -31,8 +76,7 @@ export function ChildArt({ name, className = "h-12 w-12" }: { name?: string; cla
   const i = Array.from(name ?? "").reduce((n, ch) => n + ch.charCodeAt(0), 0) % colors.length;
   const [bg, main] = colors[i];
   return (
-    <svg viewBox="0 0 48 48" className={`${className} shrink-0 rounded-2xl`} aria-hidden="true">
-      <rect width="48" height="48" rx="14" fill={bg} />
+    <ChildSvg className={className} bg={bg}>
       <circle cx="24" cy="19" r="8" fill={main} />
       <circle cx="21" cy="18.5" r="1.2" fill="#fff" />
       <circle cx="27" cy="18.5" r="1.2" fill="#fff" />
@@ -40,8 +84,15 @@ export function ChildArt({ name, className = "h-12 w-12" }: { name?: string; cla
       <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
       <circle cx="17" cy="12.5" r="3" fill={main} />
       <circle cx="31" cy="12.5" r="3" fill={main} />
-    </svg>
+    </ChildSvg>
   );
+}
+
+/** Ilustração de criança: menino, menina, ou neutra quando o sexo não foi informado. */
+export function ChildArt({ name, sex, className = "h-12 w-12" }: { name?: string; sex?: Sexo; className?: string }) {
+  if (sex === "masculino") return <BoyArt className={className} />;
+  if (sex === "feminino") return <GirlArt className={className} />;
+  return <NeutralArt name={name} className={className} />;
 }
 
 export function childAge(birthDate?: string): string | undefined {
@@ -97,6 +148,22 @@ function ChildForm({ child, onDone }: { child?: Child; onDone: () => void }) {
   return (
     <form onSubmit={submit} className="space-y-4 rounded-xl bg-muted/40 p-3">
       {field("name", "Nome *", { autoFocus: true, placeholder: "Ex.: João" })}
+      <div className="space-y-1.5">
+        <Label htmlFor="child-sex">Sexo</Label>
+        <NativeSelect
+          id="child-sex"
+          value={c.sex ?? ""}
+          onChange={(e) => setC({ ...c, sex: (e.target.value || undefined) as Sexo | undefined })}
+        >
+          <option value="">Não informar</option>
+          {SEXO_OPCOES.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </NativeSelect>
+        <p className="text-[11px] text-muted-foreground">Opcional. Usamos só para escolher o ícone do(a) filho(a).</p>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="child-birthDate">Data de nascimento</Label>
@@ -170,7 +237,7 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
   return (
     <div className="rounded-xl border bg-card p-3">
       <button type="button" className="w-full flex items-center gap-3 text-left" onClick={() => setOpen((v) => !v)}>
-        <ChildArt name={child.name} />
+        <ChildArt name={child.name} sex={child.sex} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold">{child.name}</p>
           <p className="text-xs text-muted-foreground">
