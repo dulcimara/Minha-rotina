@@ -3,7 +3,7 @@ import { AppIcon } from "@/components/AppIcons";
 import { DateInputBR } from "@/components/DateInputBR";
 import { VaccineCard } from "@/components/VaccineCard";
 import { isMinor, vaccineStatus } from "@/lib/vacinas";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -20,40 +20,49 @@ import { addDays } from "date-fns";
 import { NativeSelect } from "@/components/NativeSelect";
 
 /**
- * Ilustração de criança no estilo da família de ícones. As cores vêm da paleta
- * escolhida (--mic-1 e --mic-2), então mudam junto com o tema.
- * Menino: cabelo curto. Menina: cabelo comprido com laço. Sem sexo: rosto neutro.
+ * Ilustração de criança no mesmo estilo do botão "Filhos" da tela inicial:
+ * quadrado de bordas arredondadas com o degradê do tema e o desenho em branco.
+ * Menino: cabelo curto e gravata. Menina: cabelo comprido e laço. Sem sexo: rosto neutro.
  */
 export function ChildArt({ sex, className = "h-12 w-12" }: { sex?: Sexo; className?: string }) {
+  const id = useId().replace(/:/g, "");
+  const grad = `cbg${id}`;
   const girl = sex === "feminino";
   const boy = sex === "masculino";
-  // cor principal (cabelo, contorno, boca) e cor de apoio (laço)
-  const main = girl ? "--mic-1" : "--mic-2";
-  const light = girl ? "--mic-2" : "--mic-1";
-  const paint = (v: string) => ({ fill: `hsl(var(${v}))` });
-  const line = (v: string) => ({ stroke: `hsl(var(${v}))` });
+  const ink = { fill: "hsl(var(--mic-2))" };
+  const inkLine = { stroke: "hsl(var(--mic-2))" };
   return (
     <svg viewBox="0 0 64 64" className={`${className} shrink-0`} aria-hidden="true">
-      <rect width="64" height="64" rx="16" style={paint("--muted")} />
-      {girl && <path d="M13 30C12 16 20 10 32 10s20 6 19 20v6c0 7-4 11-10 11H23c-6 0-10-4-10-11z" style={paint(main)} opacity=".45" />}
-      <circle cx="14" cy="32" r="4.5" style={paint(main)} />
-      <circle cx="50" cy="32" r="4.5" style={paint(main)} />
-      <circle cx="32" cy="30" r="18" fill="#fff" strokeWidth="3" style={line(main)} />
-      {boy && <path d="M14 28C14 14 22 10 32 10s18 4 18 18c-4-6-10-6-14-4-4-4-10-4-14-2-2 0-4 1-8 6z" style={paint(main)} />}
-      {girl && <path d="M14 28C16 16 24 13 32 13s16 3 18 15c-6-4-12-3-16-6-4 3-10 2-16 6z" style={paint(main)} />}
+      <defs>
+        <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: "hsl(var(--mic-1))" }} />
+          <stop offset="1" style={{ stopColor: "hsl(var(--mic-2))" }} />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="15" fill={`url(#${grad})`} />
+      {girl && <path d="M13 30C12 16 20 10 32 10s20 6 19 20v6c0 7-4 11-10 11H23c-6 0-10-4-10-11z" style={ink} opacity=".55" />}
+      <circle cx="14" cy="32" r="4.5" fill="#fff" />
+      <circle cx="50" cy="32" r="4.5" fill="#fff" />
+      <circle cx="32" cy="30" r="18" fill="#fff" />
+      {boy && <path d="M14 28C14 14 22 10 32 10s18 4 18 18c-4-6-10-6-14-4-4-4-10-4-14-2-2 0-4 1-8 6z" style={ink} />}
+      {girl && <path d="M14 28C16 16 24 13 32 13s16 3 18 15c-6-4-12-3-16-6-4 3-10 2-16 6z" style={ink} />}
       {girl && (
         <>
-          <path d="M46 13L40 7v12z" style={paint(light)} />
-          <path d="M46 13l6-6v12z" style={paint(light)} />
-          <circle cx="46" cy="13" r="2" fill="#fff" />
+          <path d="M46 13L40 7v12z" fill="#fff" />
+          <path d="M46 13l6-6v12z" fill="#fff" />
+          <circle cx="46" cy="13" r="2" style={ink} />
         </>
       )}
-      <path d="M22 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={line(main)} />
-      <path d="M36 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={line(main)} />
-      <path d="M26 37h12a6 6 0 0 1-12 0z" style={paint(main)} />
-      <path d="M24 52l8 3-8 3z" style={paint(light)} />
-      <path d="M40 52l-8 3 8 3z" style={paint(light)} />
-      <circle cx="32" cy="55" r="2" style={paint(main)} />
+      <path d="M22 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={inkLine} />
+      <path d="M36 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={inkLine} />
+      <path d="M26 37h12a6 6 0 0 1-12 0z" style={ink} />
+      {(boy || girl) && (
+        <>
+          <path d="M24 52l8 3-8 3z" fill="#fff" />
+          <path d="M40 52l-8 3 8 3z" fill="#fff" />
+          <circle cx="32" cy="55" r="2" style={ink} />
+        </>
+      )}
     </svg>
   );
 }
