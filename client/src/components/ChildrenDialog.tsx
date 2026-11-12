@@ -40,27 +40,27 @@ export function ChildArt({ sex, className = "h-12 w-12" }: { sex?: Sexo; classNa
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="15" fill={`url(#${grad})`} />
-      {girl && <path d="M13 30C12 16 20 10 32 10s20 6 19 20v6c0 7-4 11-10 11H23c-6 0-10-4-10-11z" style={ink} opacity=".55" />}
-      <circle cx="14" cy="32" r="4.5" fill="#fff" />
-      <circle cx="50" cy="32" r="4.5" fill="#fff" />
-      <circle cx="32" cy="30" r="18" fill="#fff" />
-      {boy && <path d="M14 28C14 14 22 10 32 10s18 4 18 18c-4-6-10-6-14-4-4-4-10-4-14-2-2 0-4 1-8 6z" style={ink} />}
-      {girl && <path d="M14 28C16 16 24 13 32 13s16 3 18 15c-6-4-12-3-16-6-4 3-10 2-16 6z" style={ink} />}
+      {girl && <path d="M10 30C9 14 18 6 32 6s23 8 22 24v10c0 6-4 9-9 9H19c-5 0-9-3-9-9z" style={ink} opacity=".5" />}
+      <circle cx="10" cy="31" r="5" fill="#fff" />
+      <circle cx="54" cy="31" r="5" fill="#fff" />
+      <circle cx="32" cy="29" r="21" fill="#fff" />
+      {boy && <path d="M11 28C10 14 19 7 32 7s22 7 21 21c-3-6-6-8-10-8-4-3-9-4-13-2-4 2-8 4-11 8z" style={ink} />}
+      {girl && <path d="M11 28C12 16 20 12 30 12c10 0 20 4 23 16-6-6-11-6-16-3-4-3-10-2-16 0-5-2-8 0-11 3z" style={ink} />}
       {girl && (
         <>
-          <path d="M46 13L40 7v12z" fill="#fff" />
-          <path d="M46 13l6-6v12z" fill="#fff" />
-          <circle cx="46" cy="13" r="2" style={ink} />
+          <path d="M48 11L41 5v12z" fill="#fff" />
+          <path d="M48 11l7-6v12z" fill="#fff" />
+          <circle cx="48" cy="11" r="2.2" style={ink} />
         </>
       )}
-      <path d="M22 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={inkLine} />
-      <path d="M36 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={inkLine} />
-      <path d="M26 37h12a6 6 0 0 1-12 0z" style={ink} />
+      <path d="M21 30q4-5 8 0" fill="none" strokeWidth="3.2" strokeLinecap="round" style={inkLine} />
+      <path d="M35 30q4-5 8 0" fill="none" strokeWidth="3.2" strokeLinecap="round" style={inkLine} />
+      <path d="M24 38h16a8 8 0 0 1-16 0z" style={ink} />
       {(boy || girl) && (
         <>
-          <path d="M24 52l8 3-8 3z" fill="#fff" />
-          <path d="M40 52l-8 3 8 3z" fill="#fff" />
-          <circle cx="32" cy="55" r="2" style={ink} />
+          <path d="M22 54l10 3-10 3z" fill="#fff" />
+          <path d="M42 54l-10 3 10 3z" fill="#fff" />
+          <circle cx="32" cy="57" r="2.2" style={ink} />
         </>
       )}
     </svg>
