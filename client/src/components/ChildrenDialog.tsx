@@ -3,7 +3,7 @@ import { AppIcon } from "@/components/AppIcons";
 import { DateInputBR } from "@/components/DateInputBR";
 import { VaccineCard } from "@/components/VaccineCard";
 import { isMinor, vaccineStatus } from "@/lib/vacinas";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -19,80 +19,43 @@ import { occurrencesBetween } from "@/lib/recurrence";
 import { addDays } from "date-fns";
 import { NativeSelect } from "@/components/NativeSelect";
 
-/** Rosto comum da ilustração de criança (mesmo estilo das categorias). */
-function ChildSvg({ className, bg, children }: { className: string; bg: string; children: ReactNode }) {
+/**
+ * Ilustração de criança no estilo da família de ícones. As cores vêm da paleta
+ * escolhida (--mic-1 e --mic-2), então mudam junto com o tema.
+ * Menino: cabelo curto. Menina: cabelo comprido com laço. Sem sexo: rosto neutro.
+ */
+export function ChildArt({ sex, className = "h-12 w-12" }: { sex?: Sexo; className?: string }) {
+  const girl = sex === "feminino";
+  const boy = sex === "masculino";
+  // cor principal (cabelo, contorno, boca) e cor de apoio (laço)
+  const main = girl ? "--mic-1" : "--mic-2";
+  const light = girl ? "--mic-2" : "--mic-1";
+  const paint = (v: string) => ({ fill: `hsl(var(${v}))` });
+  const line = (v: string) => ({ stroke: `hsl(var(${v}))` });
   return (
-    <svg viewBox="0 0 48 48" className={`${className} shrink-0 rounded-2xl`} aria-hidden="true">
-      <rect width="48" height="48" rx="14" fill={bg} />
-      {children}
+    <svg viewBox="0 0 64 64" className={`${className} shrink-0`} aria-hidden="true">
+      <rect width="64" height="64" rx="16" style={paint("--muted")} />
+      {girl && <path d="M13 30C12 16 20 10 32 10s20 6 19 20v6c0 7-4 11-10 11H23c-6 0-10-4-10-11z" style={paint(main)} opacity=".45" />}
+      <circle cx="14" cy="32" r="4.5" style={paint(main)} />
+      <circle cx="50" cy="32" r="4.5" style={paint(main)} />
+      <circle cx="32" cy="30" r="18" fill="#fff" strokeWidth="3" style={line(main)} />
+      {boy && <path d="M14 28C14 14 22 10 32 10s18 4 18 18c-4-6-10-6-14-4-4-4-10-4-14-2-2 0-4 1-8 6z" style={paint(main)} />}
+      {girl && <path d="M14 28C16 16 24 13 32 13s16 3 18 15c-6-4-12-3-16-6-4 3-10 2-16 6z" style={paint(main)} />}
+      {girl && (
+        <>
+          <path d="M46 13L40 7v12z" style={paint(light)} />
+          <path d="M46 13l6-6v12z" style={paint(light)} />
+          <circle cx="46" cy="13" r="2" fill="#fff" />
+        </>
+      )}
+      <path d="M22 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={line(main)} />
+      <path d="M36 30q3-4 6 0" fill="none" strokeWidth="2.6" strokeLinecap="round" style={line(main)} />
+      <path d="M26 37h12a6 6 0 0 1-12 0z" style={paint(main)} />
+      <path d="M24 52l8 3-8 3z" style={paint(light)} />
+      <path d="M40 52l-8 3 8 3z" style={paint(light)} />
+      <circle cx="32" cy="55" r="2" style={paint(main)} />
     </svg>
   );
-}
-
-/** Menino: cabelo curto azul. */
-function BoyArt({ className }: { className: string }) {
-  const main = "#3b6fd8";
-  return (
-    <ChildSvg className={className} bg="#e1ecff">
-      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
-      <circle cx="16" cy="19" r="1.8" fill={main} />
-      <circle cx="32" cy="19" r="1.8" fill={main} />
-      <circle cx="24" cy="19" r="8" fill={main} />
-      <path d="M16 17.5c0-4.6 3.6-8 8-8s8 3.4 8 8c-2-1.6-4.6-2.4-8-2.4s-6 .8-8 2.4z" fill="#1f4fa8" />
-      <circle cx="21" cy="19.5" r="1.2" fill="#fff" />
-      <circle cx="27" cy="19.5" r="1.2" fill="#fff" />
-      <path d="M21 23c1.6 1.2 4.4 1.2 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-    </ChildSvg>
-  );
-}
-
-/** Menina: cabelo comprido, franja e laço rosa. */
-function GirlArt({ className }: { className: string }) {
-  const main = "#d6519f";
-  const dark = "#b5307a";
-  return (
-    <ChildSvg className={className} bg="#fde4f3">
-      <path d="M14 24c0-7 4.5-12.5 10-12.5S34 17 34 24v9c0 1.5-1 2-2 2H16c-1 0-2-.5-2-2z" fill={dark} opacity=".55" />
-      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
-      <circle cx="24" cy="19" r="8" fill={main} />
-      <path d="M16 18c0-4.6 3.6-8 8-8 3.5 0 6.5 2 7.5 5-3-.8-5.5-.5-7 .5-2 1.2-4 1.5-5.5 1.2z" fill={dark} />
-      <circle cx="21" cy="19.5" r="1.2" fill="#fff" />
-      <circle cx="27" cy="19.5" r="1.2" fill="#fff" />
-      <path d="M21 23c1.6 1.2 4.4 1.2 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-      <ellipse cx="29.6" cy="11.5" rx="2.6" ry="1.7" fill={dark} />
-      <ellipse cx="34.4" cy="11.5" rx="2.6" ry="1.7" fill={dark} />
-      <circle cx="32" cy="11.5" r="1.1" fill={dark} />
-    </ChildSvg>
-  );
-}
-
-/** Sem sexo informado: ilustração neutra, com cor estável por nome. */
-function NeutralArt({ name, className }: { name?: string; className: string }) {
-  const colors = [
-    ["#fff1d6", "#e89a1c"],
-    ["#ddf5e6", "#2f9e64"],
-    ["#efe4ff", "#8b5cd6"],
-  ];
-  const i = Array.from(name ?? "").reduce((n, ch) => n + ch.charCodeAt(0), 0) % colors.length;
-  const [bg, main] = colors[i];
-  return (
-    <ChildSvg className={className} bg={bg}>
-      <circle cx="24" cy="19" r="8" fill={main} />
-      <circle cx="21" cy="18.5" r="1.2" fill="#fff" />
-      <circle cx="27" cy="18.5" r="1.2" fill="#fff" />
-      <path d="M21 22.5c1.6 1.4 4.4 1.4 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
-      <circle cx="17" cy="12.5" r="3" fill={main} />
-      <circle cx="31" cy="12.5" r="3" fill={main} />
-    </ChildSvg>
-  );
-}
-
-/** Ilustração de criança: menino, menina, ou neutra quando o sexo não foi informado. */
-export function ChildArt({ name, sex, className = "h-12 w-12" }: { name?: string; sex?: Sexo; className?: string }) {
-  if (sex === "masculino") return <BoyArt className={className} />;
-  if (sex === "feminino") return <GirlArt className={className} />;
-  return <NeutralArt name={name} className={className} />;
 }
 
 export function childAge(birthDate?: string): string | undefined {
@@ -237,7 +200,7 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
   return (
     <div className="rounded-xl border bg-card p-3">
       <button type="button" className="w-full flex items-center gap-3 text-left" onClick={() => setOpen((v) => !v)}>
-        <ChildArt name={child.name} sex={child.sex} />
+        <ChildArt sex={child.sex} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold">{child.name}</p>
           <p className="text-xs text-muted-foreground">
