@@ -22,47 +22,62 @@ import { NativeSelect } from "@/components/NativeSelect";
 /**
  * Ilustração de criança no mesmo estilo do botão "Filhos" da tela inicial:
  * quadrado de bordas arredondadas com o degradê do tema e o desenho em branco.
- * Menino: cabelo curto e gravata. Menina: cabelo comprido e laço. Sem sexo: rosto neutro.
+ * Menino: cabelo curto. Menina: cabelo comprido com laço. Sem sexo: bebê com plumazinho.
  */
 export function ChildArt({ sex, className = "h-12 w-12" }: { sex?: Sexo; className?: string }) {
   const id = useId().replace(/:/g, "");
-  const grad = `cbg${id}`;
+  const bg = `cbg${id}`;
+  const ink = `cink${id}`;
+  const inkFill = `url(#${ink})`;
   const girl = sex === "feminino";
   const boy = sex === "masculino";
-  const ink = { fill: "hsl(var(--mic-2))" };
-  const inkLine = { stroke: "hsl(var(--mic-2))" };
+  const eyes = girl ? [203, 326] : boy ? [206, 330] : [205, 329];
   return (
-    <svg viewBox="0 0 64 64" className={`${className} shrink-0`} aria-hidden="true">
+    <svg viewBox="0 0 530 530" className={`${className} shrink-0`} aria-hidden="true">
       <defs>
-        <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={bg} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: "hsl(var(--mic-1))" }} />
+          <stop offset="1" style={{ stopColor: "hsl(var(--mic-2))" }} />
+        </linearGradient>
+        <linearGradient id={ink} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" style={{ stopColor: "hsl(var(--mic-1))" }} />
           <stop offset="1" style={{ stopColor: "hsl(var(--mic-2))" }} />
         </linearGradient>
       </defs>
-      <rect width="64" height="64" rx="15" fill={`url(#${grad})`} />
-      {girl && <path d="M10 30C9 14 18 6 32 6s23 8 22 24v10c0 6-4 9-9 9H19c-5 0-9-3-9-9z" style={ink} opacity=".5" />}
-      <circle cx="10" cy="31" r="5" fill="#fff" />
-      <circle cx="54" cy="31" r="5" fill="#fff" />
-      <circle cx="32" cy="29" r="21" fill="#fff" />
-      {boy && <path d="M11 28C10 14 19 7 32 7s22 7 21 21c-3-6-6-8-10-8-4-3-9-4-13-2-4 2-8 4-11 8z" style={ink} />}
-      {girl && <path d="M11 28C12 16 20 12 30 12c10 0 20 4 23 16-6-6-11-6-16-3-4-3-10-2-16 0-5-2-8 0-11 3z" style={ink} />}
+      <rect width="530" height="530" rx="120" fill={`url(#${bg})`} />
+
+      {/* silhueta branca: rosto e cabelo */}
+      {boy && (
+        <>
+          <circle cx="265" cy="285" r="170" fill="#fff" />
+          <path d="M118 215C112 150 170 100 240 100c60 0 112 35 122 100-22-15-42-22-72-20-35 2-60-10-90-8-30 2-52 12-82 43z" fill="#fff" />
+          <path d="M150 128c12 12 30 12 46 0-10-18-20-38-10-56-16 20-26 28-36 56z" fill="#fff" />
+          <path d="M368 202C390 215 410 230 432 252" fill="none" stroke={inkFill} strokeWidth="8" strokeLinecap="round" />
+        </>
+      )}
       {girl && (
         <>
-          <path d="M48 11L41 5v12z" fill="#fff" />
-          <path d="M48 11l7-6v12z" fill="#fff" />
-          <circle cx="48" cy="11" r="2.2" style={ink} />
+          <path d="M265 112C150 112 98 190 98 280c0 50-38 50-46 60 28 20 58 16 78 12h300c15 4 30 4 45-12-8-10-46-10-46-60 0-90-52-168-167-168z" fill="#fff" />
+          <circle cx="265" cy="285" r="170" fill="#fff" />
+          <path d="M122 250Q200 225 290 182Q340 225 407 250" fill="none" stroke={inkFill} strokeWidth="8" strokeLinecap="round" />
+          <path d="M355 125C330 90 287 85 287 112C287 135 320 140 355 125Z" fill="#fff" />
+          <path d="M355 125C380 90 425 90 425 116C425 140 390 140 355 125Z" fill="#fff" />
+          <circle cx="355" cy="125" r="12" fill={inkFill} />
         </>
       )}
-      <path d="M21 30q4-5 8 0" fill="none" strokeWidth="3.2" strokeLinecap="round" style={inkLine} />
-      <path d="M35 30q4-5 8 0" fill="none" strokeWidth="3.2" strokeLinecap="round" style={inkLine} />
-      <path d="M24 38h16a8 8 0 0 1-16 0z" style={ink} />
-      {(boy || girl) && (
+      {!boy && !girl && (
         <>
-          <path d="M22 54l10 3-10 3z" fill="#fff" />
-          <path d="M42 54l-10 3 10 3z" fill="#fff" />
-          <circle cx="32" cy="57" r="2.2" style={ink} />
+          <circle cx="267" cy="290" r="168" fill="#fff" />
+          <path d="M268 130c-10-22 2-40 22-42 14-1 16 16 6 18" fill="none" stroke="#fff" strokeWidth="14" strokeLinecap="round" />
         </>
       )}
+
+      {/* rosto */}
+      <circle cx={eyes[0]} cy="277" r="18" fill={inkFill} />
+      <circle cx={eyes[1]} cy="277" r="18" fill={inkFill} />
+      <circle cx="173" cy="335" r="22" fill={inkFill} opacity=".35" />
+      <circle cx="363" cy="335" r="22" fill={inkFill} opacity=".35" />
+      <path d={boy ? "M225 342Q270 392 315 342" : "M220 340Q265 385 310 340"} fill="none" stroke={inkFill} strokeWidth="14" strokeLinecap="round" />
     </svg>
   );
 }
