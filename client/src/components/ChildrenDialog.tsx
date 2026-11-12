@@ -3,7 +3,7 @@ import { AppIcon } from "@/components/AppIcons";
 import { DateInputBR } from "@/components/DateInputBR";
 import { VaccineCard } from "@/components/VaccineCard";
 import { isMinor, vaccineStatus } from "@/lib/vacinas";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -19,80 +19,67 @@ import { occurrencesBetween } from "@/lib/recurrence";
 import { addDays } from "date-fns";
 import { NativeSelect } from "@/components/NativeSelect";
 
-/** Rosto comum da ilustração de criança (mesmo estilo das categorias). */
-function ChildSvg({ className, bg, children }: { className: string; bg: string; children: ReactNode }) {
+/**
+ * Ilustração de criança no mesmo estilo do botão "Filhos" da tela inicial:
+ * quadrado de bordas arredondadas com o degradê do tema e o desenho em branco.
+ * Menino: cabelo curto. Menina: cabelo comprido com laço. Sem sexo: bebê com plumazinho.
+ */
+export function ChildArt({ sex, className = "h-12 w-12" }: { sex?: Sexo; className?: string }) {
+  const id = useId().replace(/:/g, "");
+  const bg = `cbg${id}`;
+  const ink = `cink${id}`;
+  const inkFill = `url(#${ink})`;
+  const girl = sex === "feminino";
+  const boy = sex === "masculino";
+  const eyes = girl ? [203, 326] : boy ? [206, 330] : [205, 329];
   return (
-    <svg viewBox="0 0 48 48" className={`${className} shrink-0 rounded-2xl`} aria-hidden="true">
-      <rect width="48" height="48" rx="14" fill={bg} />
-      {children}
+    <svg viewBox="0 0 530 530" className={`${className} shrink-0`} aria-hidden="true">
+      <defs>
+        <linearGradient id={bg} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: "hsl(var(--mic-1))" }} />
+          <stop offset="1" style={{ stopColor: "hsl(var(--mic-2))" }} />
+        </linearGradient>
+        <linearGradient id={ink} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: "hsl(var(--mic-1))" }} />
+          <stop offset="1" style={{ stopColor: "hsl(var(--mic-2))" }} />
+        </linearGradient>
+      </defs>
+      <rect width="530" height="530" rx="120" fill={`url(#${bg})`} />
+
+      {/* silhueta branca: rosto e cabelo */}
+      {boy && (
+        <>
+          <circle cx="265" cy="285" r="170" fill="#fff" />
+          <path d="M118 215C112 150 170 100 240 100c60 0 112 35 122 100-22-15-42-22-72-20-35 2-60-10-90-8-30 2-52 12-82 43z" fill="#fff" />
+          <path d="M150 128c12 12 30 12 46 0-10-18-20-38-10-56-16 20-26 28-36 56z" fill="#fff" />
+          <path d="M368 202C390 215 410 230 432 252" fill="none" stroke={inkFill} strokeWidth="8" strokeLinecap="round" />
+        </>
+      )}
+      {girl && (
+        <>
+          <path d="M265 112C150 112 98 190 98 280c0 50-38 50-46 60 28 20 58 16 78 12h300c15 4 30 4 45-12-8-10-46-10-46-60 0-90-52-168-167-168z" fill="#fff" />
+          <circle cx="265" cy="285" r="170" fill="#fff" />
+          <path d="M122 250Q200 225 290 182Q340 225 407 250" fill="none" stroke={inkFill} strokeWidth="8" strokeLinecap="round" />
+          <path d="M355 125C330 90 287 85 287 112C287 135 320 140 355 125Z" fill="#fff" />
+          <path d="M355 125C380 90 425 90 425 116C425 140 390 140 355 125Z" fill="#fff" />
+          <circle cx="355" cy="125" r="12" fill={inkFill} />
+        </>
+      )}
+      {!boy && !girl && (
+        <>
+          <circle cx="267" cy="290" r="168" fill="#fff" />
+          <path d="M268 130c-10-22 2-40 22-42 14-1 16 16 6 18" fill="none" stroke="#fff" strokeWidth="14" strokeLinecap="round" />
+        </>
+      )}
+
+      {/* rosto */}
+      <circle cx={eyes[0]} cy="277" r="18" fill={inkFill} />
+      <circle cx={eyes[1]} cy="277" r="18" fill={inkFill} />
+      <circle cx="173" cy="335" r="22" fill={inkFill} opacity=".35" />
+      <circle cx="363" cy="335" r="22" fill={inkFill} opacity=".35" />
+      <path d={boy ? "M225 342Q270 392 315 342" : "M220 340Q265 385 310 340"} fill="none" stroke={inkFill} strokeWidth="14" strokeLinecap="round" />
     </svg>
   );
-}
-
-/** Menino: cabelo curto azul. */
-function BoyArt({ className }: { className: string }) {
-  const main = "#3b6fd8";
-  return (
-    <ChildSvg className={className} bg="#e1ecff">
-      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
-      <circle cx="16" cy="19" r="1.8" fill={main} />
-      <circle cx="32" cy="19" r="1.8" fill={main} />
-      <circle cx="24" cy="19" r="8" fill={main} />
-      <path d="M16 17.5c0-4.6 3.6-8 8-8s8 3.4 8 8c-2-1.6-4.6-2.4-8-2.4s-6 .8-8 2.4z" fill="#1f4fa8" />
-      <circle cx="21" cy="19.5" r="1.2" fill="#fff" />
-      <circle cx="27" cy="19.5" r="1.2" fill="#fff" />
-      <path d="M21 23c1.6 1.2 4.4 1.2 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-    </ChildSvg>
-  );
-}
-
-/** Menina: cabelo comprido, franja e laço rosa. */
-function GirlArt({ className }: { className: string }) {
-  const main = "#d6519f";
-  const dark = "#b5307a";
-  return (
-    <ChildSvg className={className} bg="#fde4f3">
-      <path d="M14 24c0-7 4.5-12.5 10-12.5S34 17 34 24v9c0 1.5-1 2-2 2H16c-1 0-2-.5-2-2z" fill={dark} opacity=".55" />
-      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
-      <circle cx="24" cy="19" r="8" fill={main} />
-      <path d="M16 18c0-4.6 3.6-8 8-8 3.5 0 6.5 2 7.5 5-3-.8-5.5-.5-7 .5-2 1.2-4 1.5-5.5 1.2z" fill={dark} />
-      <circle cx="21" cy="19.5" r="1.2" fill="#fff" />
-      <circle cx="27" cy="19.5" r="1.2" fill="#fff" />
-      <path d="M21 23c1.6 1.2 4.4 1.2 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-      <ellipse cx="29.6" cy="11.5" rx="2.6" ry="1.7" fill={dark} />
-      <ellipse cx="34.4" cy="11.5" rx="2.6" ry="1.7" fill={dark} />
-      <circle cx="32" cy="11.5" r="1.1" fill={dark} />
-    </ChildSvg>
-  );
-}
-
-/** Sem sexo informado: ilustração neutra, com cor estável por nome. */
-function NeutralArt({ name, className }: { name?: string; className: string }) {
-  const colors = [
-    ["#fff1d6", "#e89a1c"],
-    ["#ddf5e6", "#2f9e64"],
-    ["#efe4ff", "#8b5cd6"],
-  ];
-  const i = Array.from(name ?? "").reduce((n, ch) => n + ch.charCodeAt(0), 0) % colors.length;
-  const [bg, main] = colors[i];
-  return (
-    <ChildSvg className={className} bg={bg}>
-      <circle cx="24" cy="19" r="8" fill={main} />
-      <circle cx="21" cy="18.5" r="1.2" fill="#fff" />
-      <circle cx="27" cy="18.5" r="1.2" fill="#fff" />
-      <path d="M21 22.5c1.6 1.4 4.4 1.4 6 0" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-      <path d="M12 41c0-7 5.4-11.5 12-11.5S36 34 36 41z" fill={main} opacity=".75" />
-      <circle cx="17" cy="12.5" r="3" fill={main} />
-      <circle cx="31" cy="12.5" r="3" fill={main} />
-    </ChildSvg>
-  );
-}
-
-/** Ilustração de criança: menino, menina, ou neutra quando o sexo não foi informado. */
-export function ChildArt({ name, sex, className = "h-12 w-12" }: { name?: string; sex?: Sexo; className?: string }) {
-  if (sex === "masculino") return <BoyArt className={className} />;
-  if (sex === "feminino") return <GirlArt className={className} />;
-  return <NeutralArt name={name} className={className} />;
 }
 
 export function childAge(birthDate?: string): string | undefined {
@@ -237,7 +224,7 @@ function ChildCard({ child, onEdit }: { child: Child; onEdit: () => void }) {
   return (
     <div className="rounded-xl border bg-card p-3">
       <button type="button" className="w-full flex items-center gap-3 text-left" onClick={() => setOpen((v) => !v)}>
-        <ChildArt name={child.name} sex={child.sex} />
+        <ChildArt sex={child.sex} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold">{child.name}</p>
           <p className="text-xs text-muted-foreground">
