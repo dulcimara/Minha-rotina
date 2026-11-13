@@ -14,8 +14,10 @@ import { ActivityCard } from "@/components/ActivityCard";
 import { EmptyState } from "@/components/EmptyState";
 import { CalendarX, Cake, Droplet, ShoppingCart, Sparkles, Volume2 } from "lucide-react";
 import { displayName, useAuth } from "@/hooks/use-auth";
-import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWorkouts, useChildren, useWatchlist } from "@/hooks/use-data";
+import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWorkouts, useChildren, useWatchlist, usePets, usePetVaccines } from "@/hooks/use-data";
+import { dueVaccines } from "@/lib/pets";
 import { MedsDialog } from "@/components/MedsDialog";
+import { PetsDialog } from "@/components/PetsDialog";
 import { AppIcon, type AppIconName } from "@/components/AppIcons";
 import { WorkoutsDialog } from "@/components/WorkoutsDialog";
 import { RemindersCard } from "@/components/RemindersCard";
@@ -112,6 +114,10 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildre
   const { data: birthdays = [] } = useBirthdays();
   const { data: workouts = [] } = useWorkouts();
   const { data: children = [] } = useChildren();
+  const { data: pets = [] } = usePets();
+  const { data: petVaccines = [] } = usePetVaccines();
+  const [petsOpen, setPetsOpen] = useState(false);
+  const nextPetVaccine = dueVaccines(petVaccines, new Date(), 30)[0];
   const { data: watchlist = [] } = useWatchlist();
   const toWatch = watchlist.filter((w) => w.status !== "assisti").length;
   const weekWorkouts = thisWeekCount(workouts);
@@ -223,6 +229,23 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildre
           onClick={onOpenChildren}
         />
         <Tile
+          icon="pets"
+          name="Pets"
+          stat={
+            nextPetVaccine
+              ? nextPetVaccine.days < 0
+                ? "vacina atrasada"
+                : nextPetVaccine.days === 0
+                  ? "vacina hoje"
+                  : `vacina em ${nextPetVaccine.days} dias`
+              : pets.length
+                ? `${pets.length} ${pets.length === 1 ? "pet" : "pets"}`
+                : "adicionar"
+          }
+          onClick={() => setPetsOpen(true)}
+          testId="button-open-pets"
+        />
+        <Tile
           icon="filmes"
           name="Filmes"
           stat={`${toWatch} p/ ver`}
@@ -302,6 +325,7 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildre
       )}
       <BirthdaysDialog open={birthdaysOpen} onOpenChange={setBirthdaysOpen} />
       <MedsDialog open={medsOpen} onOpenChange={setMedsOpen} />
+      <PetsDialog open={petsOpen} onOpenChange={setPetsOpen} />
       <WorkoutsDialog open={workoutsOpen} onOpenChange={setWorkoutsOpen} />
     </div>
   );
