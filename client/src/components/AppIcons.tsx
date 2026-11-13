@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * As cores vêm da paleta escolhida (--mic-1 e --mic-2), então mudam junto com o tema.
  * O microfone fica de fora: ele é só o botão de falar.
  */
-export type AppIconName = "agenda" | "listas" | "ciclo" | "remedios" | "filhos" | "aniversarios" | "filmes" | "atividade" | "lembretes" | "entendi";
+export type AppIconName = "agenda" | "listas" | "ciclo" | "remedios" | "filhos" | "pets" | "aniversarios" | "filmes" | "atividade" | "lembretes" | "entendi";
 
 const HEART = "M0 22 C-30 -4 -40 -28 -22 -40 C-10 -48 0 -40 0 -30 C0 -40 10 -48 22 -40 C40 -28 30 -4 0 22 Z";
 const SPARK = "M404 78 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10z";
@@ -65,6 +65,20 @@ function glyph(name: AppIconName, ink: string, sh: string): ReactNode {
           </g>
           <path transform="rotate(-40 256 256)" d="M256 196 h80 a60 60 0 0 1 0 120 h-80z" fill={fillInk} />
           <circle cx="372" cy="388" r="22" fill="#fff" />
+          <path d={SPARK} fill="#fff" />
+        </>
+      );
+    case "pets":
+      return (
+        <>
+          <g filter={shadow}>
+            <ellipse cx="256" cy="326" rx="96" ry="78" fill="#fff" />
+            <ellipse cx="140" cy="238" rx="34" ry="44" fill="#fff" transform="rotate(-20 140 238)" />
+            <ellipse cx="206" cy="172" rx="34" ry="44" fill="#fff" transform="rotate(-8 206 172)" />
+            <ellipse cx="306" cy="172" rx="34" ry="44" fill="#fff" transform="rotate(8 306 172)" />
+            <ellipse cx="372" cy="238" rx="34" ry="44" fill="#fff" transform="rotate(20 372 238)" />
+          </g>
+          <ellipse cx="256" cy="326" rx="96" ry="78" fill={fillInk} opacity="0.22" />
           <path d={SPARK} fill="#fff" />
         </>
       );

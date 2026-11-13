@@ -36,7 +36,7 @@ export default function Privacy() {
             <ul>
               <li>Conta: nome, como quer ser chamada, data de nascimento, e-mail e senha (a senha é guardada de forma cifrada).</li>
               <li>Opcional, para estimar calorias: sexo e peso.</li>
-              <li>O que você cadastra: compromissos, lembretes, exercícios, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, perfis dos filhos (nome, data de nascimento e, se você quiser, o sexo, usado só para escolher o ícone).</li>
+              <li>O que você cadastra: compromissos, lembretes, exercícios, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, perfis dos filhos (nome, data de nascimento e, se você quiser, o sexo, usado só para escolher o ícone), e cadastro de pets (nome, espécie, sexo, data de nascimento, castração, peso, raça, vacinas e registros de cio).</li>
               <li>
                 <strong>Dados sensíveis de saúde</strong>, só se você usar: ciclo menstrual, sintomas e humor, e remédios. Pedimos
                 o seu consentimento específico antes do primeiro registro do ciclo.
@@ -74,7 +74,7 @@ export default function Privacy() {
             <p>
               Se você ligar "Ajudar a melhorar o app" (desligado até você escolher), o app envia ao Google Analytics estatísticas
               anônimas de uso: telas abertas e recursos usados, tipo de aparelho e cidade aproximada. Nunca enviamos nome, e-mail,
-              o que você cadastra ou dados de saúde (ciclo, remédios, filhos). O Google atua como operador; dá para desligar a
+              o que você cadastra ou dados de saúde (ciclo, remédios, filhos, pets). O Google atua como operador; dá para desligar a
               qualquer momento em Configurações → Estatísticas de uso.
             </p>
           </section>

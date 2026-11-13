@@ -15,6 +15,7 @@ import {
   fetchCycleDays,
   fetchWatchlist, fetchWorkouts, fetchShares, fetchSharedLists,
 } from "@/lib/data";
+import { fetchPets, fetchPetVaccines, fetchPetHeats } from "@/lib/pets";
 import { format, subDays } from "date-fns";
 
 // Chaves dos dados guardados em memória pelo React Query.
@@ -35,6 +36,9 @@ export const keys = {
   cycleDays: (u?: string) => ["cycleDays", u],
   watchlist: (u?: string) => ["watchlist", u],
   workouts: (u?: string) => ["workouts", u],
+  pets: (u?: string) => ["pets", u],
+  petVaccines: (u?: string) => ["petVaccines", u],
+  petHeats: (u?: string) => ["petHeats", u],
 };
 
 export type DataName = keyof typeof keys;
@@ -92,6 +96,21 @@ export function useCycles() {
 export function useChildren() {
   const userId = useUserId();
   return useQuery({ queryKey: keys.children(userId), queryFn: fetchChildren, enabled: !!userId });
+}
+
+export function usePets() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.pets(userId), queryFn: fetchPets, enabled: !!userId });
+}
+
+export function usePetVaccines() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.petVaccines(userId), queryFn: fetchPetVaccines, enabled: !!userId });
+}
+
+export function usePetHeats() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.petHeats(userId), queryFn: fetchPetHeats, enabled: !!userId });
 }
 
 export function useMedications() {

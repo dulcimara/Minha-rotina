@@ -759,6 +759,9 @@ const ALL_TABLES = [
   "push_subscriptions",
   "watchlist",
   "workouts",
+  "pets",
+  "pet_vaccines",
+  "pet_heats",
 ];
 
 /** Junta todos os dados da pessoa num arquivo JSON (direito de acesso, LGPD art. 18). */
