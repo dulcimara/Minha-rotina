@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * As cores vêm da paleta escolhida (--mic-1 e --mic-2), então mudam junto com o tema.
  * O microfone fica de fora: ele é só o botão de falar.
  */
-export type AppIconName = "agenda" | "listas" | "ciclo" | "remedios" | "filhos" | "aniversarios" | "filmes" | "atividade" | "lembretes" | "entendi";
+export type AppIconName = "agenda" | "listas" | "ciclo" | "remedios" | "filhos" | "aniversarios" | "filmes" | "atividade" | "lembretes" | "livros" | "viagens" | "entendi";
 
 const HEART = "M0 22 C-30 -4 -40 -28 -22 -40 C-10 -48 0 -40 0 -30 C0 -40 10 -48 22 -40 C40 -28 30 -4 0 22 Z";
 const SPARK = "M404 78 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10z";
@@ -148,6 +148,31 @@ function glyph(name: AppIconName, ink: string, sh: string): ReactNode {
           <path d="M190 236 h132" stroke={fillInk} strokeWidth="20" strokeLinecap="round" opacity="0.35" />
           <path d={SPARK} fill="#fff" />
           <circle cx="112" cy="132" r="14" fill="#fff" opacity="0.85" />
+        </>
+      );
+    case "livros":
+      // livro aberto com marcador de página
+      return (
+        <>
+          <g filter={shadow}>
+            <path d="M256 150 C200 116 130 110 86 128 V372 C130 354 200 358 256 392 C312 358 382 354 426 372 V128 C382 110 312 116 256 150 Z" fill="#fff" />
+          </g>
+          <path d="M256 150 V392" stroke={fillInk} strokeWidth="14" strokeLinecap="round" opacity="0.45" />
+          <path d="M140 190 q58 -22 96 6" fill="none" stroke={fillInk} strokeWidth="16" strokeLinecap="round" />
+          <path d="M140 240 q58 -22 96 6" fill="none" stroke={fillInk} strokeWidth="16" strokeLinecap="round" opacity="0.5" />
+          <path d="M330 150 v64 l16 -12 16 12 v-64z" fill={fillInk} />
+          <path d={SPARK} fill="#fff" />
+        </>
+      );
+    case "viagens":
+      // avião de viagem com rastro
+      return (
+        <>
+          <path d="M96 340 C170 300 250 300 300 300" fill="none" stroke="#fff" strokeWidth="18" strokeLinecap="round" strokeDasharray="2 30" />
+          <g filter={shadow} transform="rotate(-30 256 256)">
+            <path d="M256 84 c24 0 34 22 34 46 v90 l112 62 v30 l-112 -30 v46 l38 28 v24 l-72 -20 -72 20 v-24 l38 -28 v-46 l-112 30 v-30 l112 -62 v-90 c0 -24 10 -46 34 -46z" fill="#fff" />
+          </g>
+          <path d={SPARK} fill="#fff" />
         </>
       );
     case "entendi":

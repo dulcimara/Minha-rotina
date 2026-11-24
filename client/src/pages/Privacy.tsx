@@ -36,7 +36,7 @@ export default function Privacy() {
             <ul>
               <li>Conta: nome, como quer ser chamada, data de nascimento, e-mail e senha (a senha é guardada de forma cifrada).</li>
               <li>Opcional, para estimar calorias: sexo e peso.</li>
-              <li>O que você cadastra: compromissos, lembretes, exercícios, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, perfis dos filhos (nome, data de nascimento e, se você quiser, o sexo, usado só para escolher o ícone).</li>
+              <li>O que você cadastra: compromissos, lembretes, exercícios, endereços e telefones, listas, compras, aniversários e ideias de presente, filmes e séries, livros (nome, autor e resumo), viagens (datas, origem, destino, companhias aéreas e número da reserva, que é um dado pessoal e fica visível só para você), perfis dos filhos (nome, data de nascimento e, se você quiser, o sexo, usado só para escolher o ícone).</li>
               <li>
                 <strong>Dados sensíveis de saúde</strong>, só se você usar: ciclo menstrual, sintomas e humor, e remédios. Pedimos
                 o seu consentimento específico antes do primeiro registro do ciclo.

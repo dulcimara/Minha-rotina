@@ -759,6 +759,8 @@ const ALL_TABLES = [
   "push_subscriptions",
   "watchlist",
   "workouts",
+  "livros",
+  "viagens",
 ];
 
 /** Junta todos os dados da pessoa num arquivo JSON (direito de acesso, LGPD art. 18). */
@@ -981,4 +983,115 @@ export async function fetchSharedLists(): Promise<SharedList[]> {
   const { data, error } = await supabase.from("lists").select("id, name, user_id").neq("user_id", me).order("created_at");
   if (error) return [];
   return (data ?? []).map((r) => ({ id: r.id as string, name: r.name as string, ownerId: r.user_id as string }));
+}
+
+// =============================================================
+// Livros
+// =============================================================
+
+export interface Livro {
+  id: string;
+  nome: string;
+  autor?: string;
+  resumo?: string;
+}
+
+export type LivroInput = Omit<Livro, "id">;
+
+export async function fetchLivros(): Promise<Livro[]> {
+  const { data, error } = await supabase.from("livros").select("id, nome, autor, resumo").order("nome");
+  if (error) {
+    if (error.code === "42P01") return []; // etapa 14 ainda não rodada
+    throw error;
+  }
+  return (data ?? []).map((r) => ({ id: r.id as string, nome: r.nome as string, autor: r.autor ?? undefined, resumo: r.resumo ?? undefined }));
+}
+
+function livroRow(input: LivroInput) {
+  return {
+    nome: input.nome.trim(),
+    autor: input.autor?.trim() || null,
+    resumo: input.resumo?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function saveLivro(input: LivroInput, id?: string) {
+  const { error } = id
+    ? await supabase.from("livros").update(livroRow(input)).eq("id", id)
+    : await supabase.from("livros").insert(livroRow(input));
+  if (error) throw error;
+}
+
+export async function deleteLivro(id: string) {
+  const { error } = await supabase.from("livros").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// =============================================================
+// Viagens
+// =============================================================
+
+export interface Viagem {
+  id: string;
+  dataIda: string; // AAAA-MM-DD
+  dataVolta?: string; // AAAA-MM-DD (opcional: viagem só de ida)
+  origem: string;
+  destino: string;
+  numeroReserva?: string;
+  ciaIda?: string;
+  ciaVolta?: string;
+}
+
+export type ViagemInput = Omit<Viagem, "id">;
+
+export async function fetchViagens(): Promise<Viagem[]> {
+  const { data, error } = await supabase
+    .from("viagens")
+    .select("id, data_ida, data_volta, origem, destino, numero_reserva, cia_ida, cia_volta")
+    .order("data_ida", { ascending: false });
+  if (error) {
+    if (error.code === "42P01") return []; // etapa 14 ainda não rodada
+    throw error;
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    dataIda: r.data_ida as string,
+    dataVolta: (r.data_volta as string | null) ?? undefined,
+    origem: r.origem as string,
+    destino: r.destino as string,
+    numeroReserva: (r.numero_reserva as string | null) ?? undefined,
+    ciaIda: (r.cia_ida as string | null) ?? undefined,
+    ciaVolta: (r.cia_volta as string | null) ?? undefined,
+  }));
+}
+
+function viagemRow(input: ViagemInput) {
+  return {
+    data_ida: input.dataIda,
+    data_volta: input.dataVolta || null,
+    origem: input.origem.trim(),
+    destino: input.destino.trim(),
+    numero_reserva: input.numeroReserva?.trim() || null,
+    cia_ida: input.ciaIda?.trim() || null,
+    cia_volta: input.ciaVolta?.trim() || null,
+  };
+}
+
+export async function saveViagem(input: ViagemInput, id?: string) {
+  const { error } = id
+    ? await supabase.from("viagens").update(viagemRow(input)).eq("id", id)
+    : await supabase.from("viagens").insert(viagemRow(input));
+  if (error) throw error;
+}
+
+export async function deleteViagem(id: string) {
+  const { error } = await supabase.from("viagens").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Viagem é "anterior" quando a data de volta (ou a de ida, se só de ida) já passou. */
+export function viagemPassou(v: Viagem, hoje = new Date()): boolean {
+  const fim = v.dataVolta ?? v.dataIda;
+  return fim < format(hoje, "yyyy-MM-dd");
 }

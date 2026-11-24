@@ -14,7 +14,7 @@ import { ActivityCard } from "@/components/ActivityCard";
 import { EmptyState } from "@/components/EmptyState";
 import { CalendarX, Cake, Droplet, ShoppingCart, Sparkles, Volume2 } from "lucide-react";
 import { displayName, useAuth } from "@/hooks/use-auth";
-import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWorkouts, useChildren, useWatchlist } from "@/hooks/use-data";
+import { useBirthdays, useCycles, useDoses, useMedications, useShopping, useWorkouts, useChildren, useWatchlist, useLivros, useViagens } from "@/hooks/use-data";
 import { MedsDialog } from "@/components/MedsDialog";
 import { AppIcon, type AppIconName } from "@/components/AppIcons";
 import { WorkoutsDialog } from "@/components/WorkoutsDialog";
@@ -24,6 +24,9 @@ import { dosesOn } from "@/lib/meds";
 import type { Activity } from "@/lib/data";
 import { summarizeCycles } from "@/lib/cycle";
 import { BirthdaysDialog } from "@/components/BirthdaysDialog";
+import { LivrosDialog } from "@/components/LivrosDialog";
+import { ViagensDialog } from "@/components/ViagensDialog";
+import { viagemPassou } from "@/lib/data";
 import { InstallBanner } from "@/components/InstallApp";
 import { occurrencesBetween } from "@/lib/recurrence";
 import type { TabName } from "@/pages/Home";
@@ -121,6 +124,11 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildre
   const firstName = displayName(user);
   const [birthdaysOpen, setBirthdaysOpen] = useState(false);
   const [medsOpen, setMedsOpen] = useState(false);
+  const [livrosOpen, setLivrosOpen] = useState(false);
+  const [viagensOpen, setViagensOpen] = useState(false);
+  const { data: livros = [] } = useLivros();
+  const { data: viagens = [] } = useViagens();
+  const viagensProximas = viagens.filter((v) => !viagemPassou(v)).length;
   // Veio da notificação do resumo da manhã: destaca o botão "Ouvir meu dia".
   const [fromSummary, setFromSummary] = useState(() => new URLSearchParams(window.location.search).has("resumo"));
   useEffect(() => {
@@ -228,6 +236,20 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildre
           stat={`${toWatch} p/ ver`}
           onClick={onOpenMovies}
         />
+        <Tile
+          icon="livros"
+          name="Livros"
+          stat={`${livros.length} ${livros.length === 1 ? "livro" : "livros"}`}
+          onClick={() => setLivrosOpen(true)}
+          testId="button-open-livros"
+        />
+        <Tile
+          icon="viagens"
+          name="Viagens"
+          stat={viagensProximas ? `${viagensProximas} ${viagensProximas === 1 ? "próxima" : "próximas"}` : "nenhuma marcada"}
+          onClick={() => setViagensOpen(true)}
+          testId="button-open-viagens"
+        />
       </nav>
 
       <RemindersCard />
@@ -301,6 +323,8 @@ export function TodayTab({ activities, loading, onAdd, onNavigate, onOpenChildre
         </section>
       )}
       <BirthdaysDialog open={birthdaysOpen} onOpenChange={setBirthdaysOpen} />
+      <LivrosDialog open={livrosOpen} onOpenChange={setLivrosOpen} />
+      <ViagensDialog open={viagensOpen} onOpenChange={setViagensOpen} />
       <MedsDialog open={medsOpen} onOpenChange={setMedsOpen} />
       <WorkoutsDialog open={workoutsOpen} onOpenChange={setWorkoutsOpen} />
     </div>

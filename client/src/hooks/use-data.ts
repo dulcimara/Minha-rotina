@@ -14,6 +14,7 @@ import {
   fetchDoses,
   fetchCycleDays,
   fetchWatchlist, fetchWorkouts, fetchShares, fetchSharedLists,
+  fetchLivros, fetchViagens,
 } from "@/lib/data";
 import { format, subDays } from "date-fns";
 
@@ -35,6 +36,8 @@ export const keys = {
   cycleDays: (u?: string) => ["cycleDays", u],
   watchlist: (u?: string) => ["watchlist", u],
   workouts: (u?: string) => ["workouts", u],
+  livros: (u?: string) => ["livros", u],
+  viagens: (u?: string) => ["viagens", u],
 };
 
 export type DataName = keyof typeof keys;
@@ -122,6 +125,16 @@ export function useCycleDays() {
 export function useWatchlist() {
   const userId = useUserId();
   return useQuery({ queryKey: keys.watchlist(userId), queryFn: fetchWatchlist, enabled: !!userId });
+}
+
+export function useLivros() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.livros(userId), queryFn: fetchLivros, enabled: !!userId });
+}
+
+export function useViagens() {
+  const userId = useUserId();
+  return useQuery({ queryKey: keys.viagens(userId), queryFn: fetchViagens, enabled: !!userId });
 }
 
 export function useWorkouts() {
