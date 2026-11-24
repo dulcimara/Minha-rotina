@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { validBirthDate } from "@/lib/calories";
 import { DateInputBR } from "@/components/DateInputBR";
-import { BellRing, Mic, ShoppingCart } from "lucide-react";
+import { BellRing, Eye, EyeOff, Mic, ShoppingCart } from "lucide-react";
 import { signInWithGoogle, useGoogleLoginAvailable } from "@/lib/google-login";
 
 type Mode = "entrar" | "cadastrar" | "recuperar";
@@ -31,6 +31,7 @@ export default function Login() {
   const [accepted, setAccepted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -233,16 +234,29 @@ export default function Login() {
                 </button>
               )}
             </div>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo de 6 caracteres"
-              autoComplete={mode === "entrar" ? "current-password" : "new-password"}
-              minLength={6}
-              required
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mínimo de 6 caracteres"
+                autoComplete={mode === "entrar" ? "current-password" : "new-password"}
+                minLength={6}
+                required
+                className="pr-11"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                aria-pressed={showPassword}
+                data-testid="button-toggle-password"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
           )}
 
